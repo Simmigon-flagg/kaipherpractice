@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kaipher Practice — Tagalog</title>
+<style>
+  :root {
+    --bg: #1a1d24; --card: #242833; --accent: #4f8ef7; --good: #3ecf6e;
+    --bad: #f75f5f; --text: #e8eaf0; --muted: #8a92a6;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    min-height: 100vh; padding: 24px 16px;
+  }
+  h1 { font-size: 1.3rem; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: .85rem; margin-bottom: 20px; }
+  .stats { display: flex; gap: 18px; margin-bottom: 18px; font-size: .9rem; color: var(--muted); }
+  .stats b { color: var(--text); }
+
+  /* home screen */
+  #homeScreen { width: 100%; max-width: 520px; }
+  .cat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+  .cat-card {
+    background: var(--card); border: 2px solid transparent; border-radius: 14px;
+    padding: 16px 12px; cursor: pointer; text-align: center; color: var(--text);
+    transition: border-color .1s, transform .1s;
+  }
+  .cat-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .cat-card .emoji { font-size: 1.8rem; display: block; margin-bottom: 6px; }
+  .cat-card .name { font-weight: 600; font-size: .95rem; }
+  .cat-card .count { color: var(--muted); font-size: .75rem; margin-top: 4px; }
+  .cat-card .mastery { height: 4px; border-radius: 2px; background: #3a4054; margin-top: 8px; overflow: hidden; }
+  .cat-card .mastery > div { height: 100%; background: var(--good); }
+  .cat-card.all { grid-column: 1 / -1; background: linear-gradient(135deg, #2a3550, #242833); }
+
+  /* quiz screen */
+  #quizScreen { display: none; width: 100%; max-width: 440px; flex-direction: column; align-items: center; }
+  .quiz-head { display: flex; align-items: center; gap: 10px; width: 100%; margin-bottom: 14px; }
+  .quiz-head .cat-label { font-weight: 600; }
+  .card {
+    background: var(--card); border-radius: 16px; padding: 28px;
+    width: 100%; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,.3);
+  }
+  .word-area { min-height: 64px; display: flex; flex-direction: column; align-items: center; justify-content: center; margin-bottom: 18px; }
+  .tl-word { font-size: 1.9rem; font-weight: 700; letter-spacing: .5px; }
+  .hidden-word { color: var(--muted); font-size: 1rem; }
+  .play-btn {
+    background: var(--accent); border: none; color: white; font-size: 1rem;
+    padding: 10px 22px; border-radius: 999px; cursor: pointer; margin-bottom: 18px;
+  }
+  .play-btn:active { transform: scale(.97); }
+  .choices { display: grid; gap: 10px; }
+  .choice {
+    background: #2e3342; border: 2px solid transparent; color: var(--text);
+    padding: 14px; border-radius: 12px; font-size: 1.05rem; cursor: pointer;
+    transition: border-color .1s, background .1s;
+  }
+  .choice:hover { border-color: var(--accent); }
+  .choice.correct { background: var(--good); color: #10241a; font-weight: 700; }
+  .choice.wrong { background: var(--bad); color: #2a1010; font-weight: 700; }
+  .choice:disabled { cursor: default; }
+  .verdict { min-height: 28px; margin-top: 14px; font-weight: 600; }
+  .verdict.good { color: var(--good); }
+  .verdict.bad { color: var(--bad); }
+  .row { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .ghost-btn {
+    background: none; border: 1px solid #3a4054; color: var(--muted);
+    padding: 8px 14px; border-radius: 10px; cursor: pointer; font-size: .85rem;
+  }
+  .ghost-btn:hover { color: var(--text); border-color: var(--accent); }
+  #importBox { display: none; width: 100%; max-width: 440px; margin-top: 16px; }
+  #importBox textarea {
+    width: 100%; height: 120px; background: var(--card); color: var(--text);
+    border: 1px solid #3a4054; border-radius: 10px; padding: 10px; font-size: .9rem;
+  }
+  .voice-note { color: var(--muted); font-size: .75rem; margin-top: 14px; max-width: 440px; text-align: center; }
+</style>
+</head>
+<body>
+  <h1>🇵🇭 Kaipher Practice</h1>
+  <div class="sub" id="subTitle">Pick a category to start</div>
+
+  <!-- HOME -->
+  <div id="homeScreen">
+    <div class="cat-grid" id="catGrid"></div>
+    <div class="row">
+      <button class="ghost-btn" id="importBtn">＋ Add words</button>
+      <button class="ghost-btn" id="testSoundBtn">🔔 Test sound</button>
+      <button class="ghost-btn" id="resetBtn">Reset progress</button>
+    </div>
+    <div id="importBox">
+      <p style="color:var(--muted);font-size:.8rem;margin-bottom:6px">One per line: <code>tagalog = english</code> (goes into "My Words")</p>
+      <textarea id="importText" placeholder="nagtatrabaho = working&#10;kumakain = eating"></textarea>
+      <div class="row">
+        <button class="ghost-btn" id="importSave">Save words</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- QUIZ -->
+  <div id="quizScreen">
+    <div class="quiz-head">
+      <button class="ghost-btn" id="homeBtn">← Home</button>
+      <span class="cat-label" id="catLabel"></span>
+    </div>
+    <div class="stats">
+      <span>Score: <b id="score">0</b></span>
+      <span>Streak: <b id="streak">0</b>🔥</span>
+      <span>Best: <b id="best">0</b></span>
+    </div>
+    <div class="card">
+      <div class="word-area">
+        <div id="wordDisplay" class="hidden-word">(listen first — tap 👁 to peek)</div>
+      </div>
+      <button class="play-btn" id="playBtn">🔊 Play word</button>
+      <div class="choices" id="choices"></div>
+      <div class="verdict" id="verdict"></div>
+    </div>
+    <div class="row">
+      <button class="ghost-btn" id="peekBtn">👁 Show word</button>
+      <button class="ghost-btn" id="skipBtn">Skip →</button>
+    </div>
+  </div>
+
+  <div class="voice-note" id="voiceNote"></div>
+
+<script src="practicetag.js"></script>
+<script>
+// ---------- data ----------
+const LS = { custom: "tq_custom", prog: "tq_progress", best: "tq_best" };
+let customWords = JSON.parse(localStorage.getItem(LS.custom) || "[]");
+const CATS = WORD_CATEGORIES; // from practicetag.js
+function allWords() {
+  const out = [];
+  Object.values(CATS).forEach(c => out.push(...c.words));
+  out.push(...customWords);
+  return out;
+}
+
+// ---------- state ----------
+let progress = JSON.parse(localStorage.getItem(LS.prog) || "{}"); // {word: {ok, miss}}
+let score = 0, streak = 0, best = +(localStorage.getItem(LS.best) || 0);
+let words = [], current = null, answered = false, currentCat = null;
+
+// ---------- audio: reward sounds ----------
+let actx;
+function ctx() { if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); return actx; }
+function chimeNote(freq, dt, dur, vol) {
+  const c = ctx(), t = c.currentTime + dt;
+  [[1, vol], [4, vol * 0.15]].forEach(([mult, v]) => {
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = "sine"; o.frequency.value = freq * mult;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(v, t + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(c.destination);
+    o.start(t); o.stop(t + dur + 0.05);
+  });
+}
+function wuf(dt) {
+  const c = ctx(), t = c.currentTime + dt;
+  const o = c.createOscillator(), g = c.createGain(), f = c.createBiquadFilter();
+  o.type = "triangle";
+  o.frequency.setValueAtTime(220, t);
+  o.frequency.exponentialRampToValueAtTime(110, t + 0.12);
+  f.type = "lowpass"; f.frequency.value = 600;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(0.3, t + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.14);
+  o.connect(f).connect(g).connect(c.destination);
+  o.start(t); o.stop(t + 0.2);
+}
+function bork() {
+  chimeNote(659.25, 0, 0.45, 0.22);
+  chimeNote(880.0, 0.13, 0.6, 0.22);
+  wuf(0.42);
+}
+function buzz() {
+  const c = ctx(), t = c.currentTime;
+  const o = c.createOscillator(), g = c.createGain();
+  o.type = "sawtooth"; o.frequency.setValueAtTime(140, t);
+  g.gain.setValueAtTime(0.12, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + .25);
+  o.connect(g).connect(c.destination); o.start(t); o.stop(t + .3);
+}
+
+// ---------- TTS ----------
+// Primary: Google Translate Tagalog TTS. Fallback: installed Filipino voice. Last resort: show text.
+let filVoice = null;
+let gttsOk = true;
+function pickVoice() {
+  const vs = speechSynthesis.getVoices();
+  filVoice = vs.find(v => /^fil|^tl\b|tl[-_]|tagalog/i.test(v.lang) || /filipino|tagalog/i.test(v.name)) || null;
+  updateVoiceNote();
+}
+function updateVoiceNote() {
+  const note = document.getElementById("voiceNote");
+  if (gttsOk) note.textContent = "Voice: Google Translate Filipino (online)";
+  else if (filVoice) note.textContent = "Voice: " + filVoice.name + " (" + filVoice.lang + ")";
+  else note.textContent = "⚠️ No Filipino audio available (offline + no system voice) — showing words as text.";
+}
+speechSynthesis.onvoiceschanged = pickVoice;
+pickVoice();
+
+let currentAudio = null;
+function speak(word) {
+  if (gttsOk) {
+    if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+    const url = "https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=tl&q=" + encodeURIComponent(word);
+    const a = new Audio(url);
+    currentAudio = a;
+    a.play().catch(err => {
+      if (err && err.name === "NotAllowedError") return; // autoplay block, not a failure
+      gttsOk = false; updateVoiceNote(); speak(word);
+    });
+    a.onerror = () => { gttsOk = false; updateVoiceNote(); speak(word); };
+    return;
+  }
+  if (filVoice) {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(word);
+    u.voice = filVoice; u.lang = filVoice.lang; u.rate = 0.85;
+    speechSynthesis.speak(u);
+    return;
+  }
+  showWord();
+}
+
+// ---------- home screen ----------
+function masteryOf(wordList) {
+  if (!wordList.length) return 0;
+  const seen = wordList.filter(([tl]) => (progress[tl] || {}).ok >= 3).length;
+  return Math.round(100 * seen / wordList.length);
+}
+function renderHome() {
+  const grid = document.getElementById("catGrid");
+  grid.innerHTML = "";
+  const all = allWords();
+  const makeCard = (name, emoji, wordList, isAll) => {
+    const d = document.createElement("div");
+    d.className = "cat-card" + (isAll ? " all" : "");
+    const m = masteryOf(wordList);
+    d.innerHTML = '<span class="emoji">' + emoji + '</span>' +
+      '<div class="name">' + name + '</div>' +
+      '<div class="count">' + wordList.length + ' words · ' + m + '% mastered</div>' +
+      '<div class="mastery"><div style="width:' + m + '%"></div></div>';
+    d.onclick = () => startQuiz(name, wordList);
+    grid.appendChild(d);
+  };
+  makeCard("All Words", "📚", all, true);
+  Object.entries(CATS).forEach(([name, c]) => makeCard(name, c.emoji, c.words, false));
+  if (customWords.length) makeCard("My Words", "✍️", customWords, false);
+}
+function startQuiz(name, wordList) {
+  currentCat = name;
+  words = wordList.slice();
+  document.getElementById("homeScreen").style.display = "none";
+  document.getElementById("quizScreen").style.display = "flex";
+  document.getElementById("catLabel").textContent = name;
+  document.getElementById("subTitle").textContent = "Listen → pick the meaning → earn the reward";
+  score = 0; streak = 0;
+  updateStats();
+  nextQuestion();
+}
+function goHome() {
+  if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+  speechSynthesis.cancel();
+  answered = false; current = null;
+  document.getElementById("quizScreen").style.display = "none";
+  document.getElementById("homeScreen").style.display = "block";
+  document.getElementById("subTitle").textContent = "Pick a category to start";
+  renderHome(); // refresh mastery bars
+}
+
+// ---------- quiz logic ----------
+function weightOf(w) {
+  const p = progress[w] || { ok: 0, miss: 0 };
+  return 1 + p.miss * 3 - Math.min(p.ok, 5) * 0.15;
+}
+function pickWord() {
+  const weights = words.map(([w]) => Math.max(0.1, weightOf(w)));
+  let r = Math.random() * weights.reduce((a, b) => a + b, 0);
+  for (let i = 0; i < words.length; i++) { r -= weights[i]; if (r <= 0) return words[i]; }
+  return words[words.length - 1];
+}
+function nextQuestion() {
+  if (!words.length) return;
+  answered = false;
+  current = pickWord();
+  const [tl, en] = current;
+  // distractors from the category; top up from all words if the category is small
+  let pool = words.filter(w => w[1] !== en);
+  if (pool.length < 3) pool = pool.concat(allWords().filter(w => w[1] !== en));
+  const distractors = [];
+  while (distractors.length < 3 && pool.length) {
+    const i = Math.floor(Math.random() * pool.length);
+    const cand = pool.splice(i, 1)[0][1];
+    if (!distractors.includes(cand)) distractors.push(cand);
+  }
+  const options = [...distractors, en].sort(() => Math.random() - 0.5);
+  const box = document.getElementById("choices");
+  box.innerHTML = "";
+  options.forEach(opt => {
+    const b = document.createElement("button");
+    b.className = "choice"; b.textContent = opt;
+    b.onclick = () => answer(b, opt);
+    box.appendChild(b);
+  });
+  document.getElementById("verdict").textContent = "";
+  document.getElementById("verdict").className = "verdict";
+  const wd = document.getElementById("wordDisplay");
+  if (gttsOk || filVoice) { wd.textContent = "(listen first — tap 👁 to peek)"; wd.className = "hidden-word"; }
+  else showWord();
+  speak(tl);
+}
+function showWord() {
+  const wd = document.getElementById("wordDisplay");
+  wd.textContent = current ? current[0] : "";
+  wd.className = "tl-word";
+}
+function answer(btn, choice) {
+  if (answered) return;
+  answered = true;
+  const [tl, en] = current;
+  const p = progress[tl] = progress[tl] || { ok: 0, miss: 0 };
+  const v = document.getElementById("verdict");
+  document.querySelectorAll(".choice").forEach(b => b.disabled = true);
+  showWord();
+  if (choice === en) {
+    btn.classList.add("correct");
+    bork();
+    p.ok++; score++; streak++;
+    if (streak > best) { best = streak; localStorage.setItem(LS.best, best); }
+    v.textContent = "✅ Correct! " + tl + " = " + en;
+    v.classList.add("good");
+  } else {
+    btn.classList.add("wrong");
+    buzz();
+    p.miss++; streak = 0;
+    document.querySelectorAll(".choice").forEach(b => { if (b.textContent === en) b.classList.add("correct"); });
+    v.textContent = "❌ " + tl + " = " + en;
+    v.classList.add("bad");
+  }
+  localStorage.setItem(LS.prog, JSON.stringify(progress));
+  updateStats();
+  const inQuiz = () => document.getElementById("quizScreen").style.display !== "none";
+  setTimeout(() => { if (inQuiz()) nextQuestion(); }, choice === en ? 1100 : 2200);
+}
+function updateStats() {
+  document.getElementById("score").textContent = score;
+  document.getElementById("streak").textContent = streak;
+  document.getElementById("best").textContent = best;
+}
+
+// ---------- controls ----------
+document.getElementById("playBtn").onclick = () => current && speak(current[0]);
+document.getElementById("testSoundBtn").onclick = bork;
+document.getElementById("peekBtn").onclick = showWord;
+document.getElementById("skipBtn").onclick = nextQuestion;
+document.getElementById("homeBtn").onclick = goHome;
+document.getElementById("importBtn").onclick = () => {
+  const b = document.getElementById("importBox");
+  b.style.display = b.style.display === "block" ? "none" : "block";
+};
+document.getElementById("importSave").onclick = () => {
+  const lines = document.getElementById("importText").value.split("\n");
+  let added = 0;
+  const existing = allWords();
+  lines.forEach(l => {
+    const m = l.split("=");
+    if (m.length === 2) {
+      const tl = m[0].trim(), en = m[1].trim();
+      if (tl && en && !existing.some(w => w[0] === tl)) { customWords.push([tl, en]); added++; }
+    }
+  });
+  localStorage.setItem(LS.custom, JSON.stringify(customWords));
+  document.getElementById("importText").value = "";
+  document.getElementById("importBox").style.display = "none";
+  renderHome();
+  alert(added + " word(s) added to My Words.");
+};
+document.getElementById("resetBtn").onclick = () => {
+  if (confirm("Reset all progress and custom words?")) {
+    localStorage.removeItem(LS.custom); localStorage.removeItem(LS.prog); localStorage.removeItem(LS.best);
+    location.reload();
+  }
+};
+
+renderHome();
+</script>
+</body>
+</html>
