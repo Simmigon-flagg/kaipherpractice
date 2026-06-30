@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kaipher Practice</title>
+<style>
+  :root {
+    --bg: #1a1d24; --card: #242833; --accent: #4f8ef7; --good: #3ecf6e;
+    --bad: #f75f5f; --text: #e8eaf0; --muted: #8a92a6;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    min-height: 100vh; padding: 24px 16px; font-size: 1.25rem;
+  }
+  h1 { font-size: 2rem; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 1.15rem; margin-bottom: 20px; }
+  .stats { display: flex; gap: 22px; margin-bottom: 18px; font-size: 1.2rem; color: var(--muted); }
+  .stats b { color: var(--text); }
+
+  /* home screen */
+  #homeScreen { width: 100%; max-width: 680px; }
+  .deck-toggle {
+    display: flex; gap: 6px; background: var(--card); border-radius: 999px;
+    padding: 6px; margin-bottom: 14px; width: fit-content; margin-left: auto; margin-right: auto;
+  }
+  .deck-toggle button {
+    background: none; border: none; color: var(--muted); cursor: pointer;
+    font-size: 1.2rem; font-weight: 600; padding: 10px 24px; border-radius: 999px;
+    transition: background .12s, color .12s;
+  }
+  .deck-toggle button.active { background: var(--accent); color: #fff; }
+  .learned-banner {
+    background: var(--card); border-radius: 14px; padding: 14px 18px;
+    text-align: center; font-size: 1.3rem; font-weight: 600; margin-bottom: 14px;
+  }
+  .learned-banner small { display: block; color: var(--muted); font-size: 1rem; font-weight: 400; margin-top: 4px; }
+  .cat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+  .cat-card {
+    background: var(--card); border: 2px solid transparent; border-radius: 14px;
+    padding: 16px 12px; cursor: pointer; text-align: center; color: var(--text);
+    transition: border-color .1s, transform .1s;
+  }
+  .cat-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .cat-card .emoji { font-size: 2.4rem; display: block; margin-bottom: 6px; }
+  .cat-card .name { font-weight: 600; font-size: 1.25rem; }
+  .cat-card .count { color: var(--muted); font-size: 1rem; margin-top: 4px; }
+  .cat-card .mastery { height: 6px; border-radius: 2px; background: #3a4054; margin-top: 8px; overflow: hidden; }
+  .cat-card .mastery > div { height: 100%; background: var(--good); }
+  .cat-card.all { grid-column: 1 / -1; background: linear-gradient(135deg, #2a3550, #242833); }
+
+  /* quiz screen */
+  #quizScreen { display: none; width: 100%; max-width: 560px; flex-direction: column; align-items: center; }
+  .quiz-head { display: flex; align-items: center; gap: 10px; width: 100%; margin-bottom: 14px; }
+  .quiz-head .cat-label { font-weight: 600; }
+  .card {
+    background: var(--card); border-radius: 16px; padding: 28px;
+    width: 100%; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,.3);
+  }
+  .word-area { min-height: 84px; display: flex; flex-direction: column; align-items: center; justify-content: center; margin-bottom: 18px; }
+  .tl-word { font-size: 2.8rem; font-weight: 700; letter-spacing: .5px; }
+  .hidden-word { color: var(--muted); font-size: 1.2rem; }
+  .play-btn {
+    background: var(--accent); border: none; color: white; font-size: 1.4rem;
+    padding: 14px 30px; border-radius: 999px; cursor: pointer; margin-bottom: 18px;
+  }
+  .play-btn:active { transform: scale(.97); }
+  .choices { display: grid; gap: 10px; }
+  .choice {
+    background: #2e3342; border: 2px solid transparent; color: var(--text);
+    padding: 20px; border-radius: 12px; font-size: 1.5rem; cursor: pointer;
+    transition: border-color .1s, background .1s;
+  }
+  .choice:hover { border-color: var(--accent); }
+  .choice.correct { background: var(--good); color: #10241a; font-weight: 700; }
+  .choice.wrong { background: var(--bad); color: #2a1010; font-weight: 700; }
+  .choice:disabled { cursor: default; }
+  .verdict { min-height: 36px; margin-top: 14px; font-weight: 600; font-size: 1.3rem; }
+  .verdict.good { color: var(--good); }
+  .verdict.bad { color: var(--bad); }
+  .row { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .ghost-btn {
+    background: none; border: 1px solid #3a4054; color: var(--muted);
+    padding: 12px 20px; border-radius: 10px; cursor: pointer; font-size: 1.15rem;
+  }
+  .ghost-btn:hover { color: var(--text); border-color: var(--accent); }
+  #importBox { display: none; width: 100%; max-width: 440px; margin-top: 16px; }
+  #importBox textarea {
+    width: 100%; height: 140px; background: var(--card); color: var(--text);
+    border: 1px solid #3a4054; border-radius: 10px; padding: 12px; font-size: 1.15rem;
+  }
+  .voice-note { color: var(--muted); font-size: 1rem; margin-top: 14px; max-width: 560px; text-align: center; }
+  #settingsBox { display: none; background: var(--card); border-radius: 14px; padding: 18px; margin-top: 16px; }
+  .settings-row { display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; margin-bottom: 12px; }
+  .settings-row:last-child { margin-bottom: 0; }
+  .settings-row label { font-size: 1.15rem; }
+  #phraseBox { margin-top: 10px; min-height: 0; }
+  .phrase-tl { font-size: 1.4rem; font-weight: 600; color: var(--text); }
+  .phrase-en { font-size: 1.1rem; color: var(--muted); margin-top: 2px; }
+  #soundSelect, #modeSelect, #apiKeyInput, #newCapSelect, #revSelect, #phraseSelect {
+    background: #2e3342; color: var(--text); border: 1px solid #3a4054;
+    border-radius: 10px; padding: 10px 14px; font-size: 1.15rem;
+  }
+  #typedArea { display: none; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  #typedInput {
+    background: #2e3342; color: var(--text); border: 2px solid #3a4054;
+    border-radius: 12px; padding: 16px; font-size: 1.5rem; width: 100%; max-width: 320px;
+    text-align: center;
+  }
+  #typedInput:focus { outline: none; border-color: var(--accent); }
+  #sessBar { width: 100%; max-width: 560px; height: 8px; background: #2e3342; border-radius: 4px; margin-bottom: 14px; overflow: hidden; display: none; }
+  #sessFill { height: 100%; width: 0%; background: var(--good); border-radius: 4px; transition: width .3s; }
+  #studyTimer {
+    position: fixed; top: 10px; right: 10px; z-index: 50;
+    display: flex; align-items: center; gap: 8px;
+    background: var(--card); border: 1px solid #3a4054; border-radius: 999px;
+    padding: 6px 12px; font-size: .95rem; box-shadow: 0 2px 10px rgba(0,0,0,.3);
+  }
+  #studyTimer .tt-total { color: var(--muted); }
+  #studyTimer .tt-cd { font-weight: 700; font-variant-numeric: tabular-nums; min-width: 56px; text-align: center; }
+  #studyTimer .tt-cd.alarm { color: var(--bad); animation: ttflash .6s steps(1) infinite; }
+  @keyframes ttflash { 50% { opacity: .35; } }
+  #studyTimer .tt-btn {
+    background: #2e3342; border: none; color: var(--text); cursor: pointer;
+    width: 30px; height: 30px; border-radius: 50%; font-size: .9rem;
+  }
+  #studyTimer .tt-btn:hover { background: var(--accent); }
+</style>
+</head>
+<body>
+  <div id="studyTimer">
+    <span class="tt-total" id="ttTotal">⏱ 0h 0m</span>
+    <span class="tt-cd" id="ttCountdown">60:00</span>
+    <button class="tt-btn" id="ttToggle" title="Start / pause the countdown">▶</button>
+    <button class="tt-btn" id="ttSet" title="Set countdown length">⏲</button>
+  </div>
+  <h1>Kaipher Practice</h1>
+  <div class="sub" id="subTitle">Pick a category to start</div>
+
+  <!-- HOME -->
+  <div id="homeScreen">
+    <div class="deck-toggle">
+      <button id="deckWords" class="active">📚 Words</button>
+      <button id="deckSentences">💬 Sentences</button>
+      <button id="deckConj">🧩 Conjugation</button>
+      <button id="deckJudge">🤔 Makes Sense?</button>
+    </div>
+    <div class="learned-banner" id="learnedBanner"></div>
+    <div class="cat-grid" id="catGrid"></div>
+    <div class="row">
+      <button class="ghost-btn" id="importBtn">＋ Add words</button>
+      <button class="ghost-btn" id="settingsBtn">⚙️ Settings</button>
+      <button class="ghost-btn" id="resetBtn">Reset progress</button>
+    </div>
+    <div id="settingsBox">
+      <div class="settings-row">
+        <label for="soundSelect">Win sound:</label>
+        <select id="soundSelect"></select>
+        <button class="ghost-btn" id="previewSoundBtn">▶ Preview</button>
+      </div>
+      <div class="settings-row">
+        <input type="file" id="soundFile" accept="audio/*" style="display:none">
+        <button class="ghost-btn" id="addSoundBtn">＋ Add sound (audio file)</button>
+        <button class="ghost-btn" id="deleteSoundBtn" style="display:none">🗑 Remove this sound</button>
+      </div>
+      <div class="settings-row">
+        <label for="modeSelect">Answer mode:</label>
+        <select id="modeSelect">
+          <option value="choice">Multiple choice</option>
+          <option value="typed">Typed answer (harder, sticks better)</option>
+        </select>
+      </div>
+      <div class="settings-row">
+        <label for="apiKeyInput">Haiku key:</label>
+        <input type="password" id="apiKeyInput" placeholder="sk-ant-… (optional, for typo judging)">
+        <button class="ghost-btn" id="saveKeyBtn">Save key</button>
+      </div>
+      <div class="settings-row">
+        <label for="newCapSelect">Words in play:</label>
+        <select id="newCapSelect">
+          <option value="3">3</option><option value="5">5</option>
+          <option value="10">10</option><option value="20">20</option>
+        </select>
+        <label for="revSelect">Reverse cards:</label>
+        <select id="revSelect"><option value="on">On</option><option value="off">Off</option></select>
+        <label for="phraseSelect">Phrases:</label>
+        <select id="phraseSelect"><option value="on">On</option><option value="off">Off</option></select>
+      </div>
+      <div class="settings-row">
+        <input type="file" id="backupFile" accept=".json" style="display:none">
+        <button class="ghost-btn" id="exportBtn">⬇ Export backup</button>
+        <button class="ghost-btn" id="importBackupBtn">⬆ Import backup</button>
+      </div>
+    </div>
+    <div id="importBox">
+      <p style="color:var(--muted);font-size:1.05rem;margin-bottom:6px">One per line: <code>tagalog = english</code> (goes into "My Words")</p>
+      <textarea id="importText" placeholder="nagtatrabaho = working&#10;kumakain = eating"></textarea>
+      <div class="row">
+        <button class="ghost-btn" id="importSave">Save words</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- QUIZ -->
+  <div id="quizScreen">
+    <div class="quiz-head">
+      <button class="ghost-btn" id="homeBtn">← Home</button>
+      <span class="cat-label" id="catLabel"></span>
+      <button class="ghost-btn" id="modeBtn" style="margin-left:auto">⌨️ Typed: off</button>
+    </div>
+    <div class="stats">
+      <span>Score: <b id="score">0</b></span>
+      <span>Streak: <b id="streak">0</b>🔥</span>
+      <span>Best: <b id="best">0</b></span>
+      <span id="timeWrap" style="display:none">⏱ <b id="timeLeft">60</b>s</span>
+    </div>
+    <div id="sessBar"><div id="sessFill"></div></div>
+    <div class="card">
+      <div class="word-area">
+        <div id="wordDisplay" class="hidden-word">(listen first — tap 👁 to peek)</div>
+      </div>
+      <div class="choices" id="choices"></div>
+      <div id="typedArea">
+        <input type="text" id="typedInput" placeholder="type the English meaning…" autocomplete="off" autocapitalize="off">
+        <button class="play-btn" id="typedSubmit" style="margin:0">Check</button>
+      </div>
+      <div class="verdict" id="verdict"></div>
+      <div id="phraseBox"></div>
+      <button class="play-btn" id="playBtn" style="margin:18px auto 0; display:block">🔊 Play word</button>
+    </div>
+    <div class="row">
+      <button class="ghost-btn" id="peekBtn">👁 Show word</button>
+      <button class="ghost-btn" id="skipBtn">Skip →</button>
+    </div>
+  </div>
+
+  <div class="voice-note" id="voiceNote"></div>
+
+<script src="practicetag.js"></script>
+<script src="practicesentences.js"></script>
+<script src="practiceconjugation.js"></script>
+<script src="practicejudge.js"></script>
+<script src="phrases.js"></script>
+<script src="practice-app.js"></script>
+<script src="timer.js"></script>
+</body>
+</html>

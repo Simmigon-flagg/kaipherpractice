@@ -1,0 +1,2668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kaipher Practice</title>
+<style>
+  :root {
+    --bg: #1a1d24; --card: #242833; --accent: #4f8ef7; --good: #3ecf6e;
+    --bad: #f75f5f; --text: #e8eaf0; --muted: #8a92a6;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    min-height: 100vh; padding: 24px 16px; font-size: 1.25rem;
+  }
+  h1 { font-size: 2rem; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 1.15rem; margin-bottom: 20px; }
+  .stats { display: flex; gap: 22px; margin-bottom: 18px; font-size: 1.2rem; color: var(--muted); }
+  .stats b { color: var(--text); }
+
+  /* home screen */
+  #homeScreen { width: 100%; max-width: 680px; }
+  .deck-toggle {
+    display: flex; gap: 6px; background: var(--card); border-radius: 999px;
+    padding: 6px; margin-bottom: 14px; width: fit-content; margin-left: auto; margin-right: auto;
+  }
+  .deck-toggle button {
+    background: none; border: none; color: var(--muted); cursor: pointer;
+    font-size: 1.2rem; font-weight: 600; padding: 10px 24px; border-radius: 999px;
+    transition: background .12s, color .12s;
+  }
+  .deck-toggle button.active { background: var(--accent); color: #fff; }
+  .learned-banner {
+    background: var(--card); border-radius: 14px; padding: 14px 18px;
+    text-align: center; font-size: 1.3rem; font-weight: 600; margin-bottom: 14px;
+  }
+  .learned-banner small { display: block; color: var(--muted); font-size: 1rem; font-weight: 400; margin-top: 4px; }
+  /* one-tap daily start — no decisions */
+  #startHereBtn {
+    display: block; width: 100%; margin: 4px 0 6px;
+    background: linear-gradient(135deg, #3ecf6e, #2fae5a); color: #08230f;
+    border: none; border-radius: 16px; padding: 22px; cursor: pointer;
+    font-size: 1.6rem; font-weight: 800; letter-spacing: .3px;
+    box-shadow: 0 6px 22px rgba(62,207,110,.4); transition: transform .1s;
+  }
+  #startHereBtn:active { transform: scale(.98); }
+  #startHereHint { text-align: center; color: var(--muted); font-size: 1rem; margin-bottom: 16px; }
+  .cat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+  .cat-card {
+    background: var(--card); border: 2px solid transparent; border-radius: 14px;
+    padding: 16px 12px; cursor: pointer; text-align: center; color: var(--text);
+    transition: border-color .1s, transform .1s;
+  }
+  .cat-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .cat-card .emoji { font-size: 2.4rem; display: block; margin-bottom: 6px; }
+  .cat-card .name { font-weight: 600; font-size: 1.25rem; }
+  .cat-card .count { color: var(--muted); font-size: 1rem; margin-top: 4px; }
+  .cat-card .mastery { height: 6px; border-radius: 2px; background: #3a4054; margin-top: 8px; overflow: hidden; }
+  .cat-card .mastery > div { height: 100%; background: var(--good); }
+  .cat-card.all { grid-column: 1 / -1; background: linear-gradient(135deg, #2a3550, #242833); }
+  /* "Level Up: Sentences" bridge card — green so you notice when it appears */
+  .cat-card.levelup {
+    grid-column: 1 / -1;
+    background: linear-gradient(135deg, #1d3b2a, #243325);
+    border-color: var(--good);
+    box-shadow: 0 0 16px rgba(62, 207, 110, .35);
+  }
+  .cat-card.levelup .name { color: var(--good); }
+  .cat-card.levelup:hover { border-color: var(--good); }
+
+  /* quiz screen */
+  #quizScreen { display: none; width: 100%; max-width: 560px; flex-direction: column; align-items: center; }
+  .quiz-head { display: flex; align-items: center; gap: 10px; width: 100%; margin-bottom: 14px; }
+  .quiz-head .cat-label { font-weight: 600; }
+  .card {
+    background: var(--card); border-radius: 16px; padding: 28px;
+    width: 100%; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,.3);
+  }
+  .word-area { min-height: 84px; display: flex; flex-direction: column; align-items: center; justify-content: center; margin-bottom: 18px; }
+  .tl-word { font-size: 2.8rem; font-weight: 700; letter-spacing: .5px; }
+  /* per-word coloring inside sentences */
+  .tl-known { color: var(--good); }            /* words you've mastered */
+  .tl-glue { color: var(--accent); opacity: .9; } /* grammar glue: ang, ng, sa… */
+  #tlLegend { display: none; gap: 14px; justify-content: center; flex-wrap: wrap;
+    font-size: .95rem; color: var(--muted); margin: -6px 0 10px; }
+  #tlLegend span { white-space: nowrap; }
+  #tlLegend b { font-weight: 700; }
+  .hidden-word { color: var(--muted); font-size: 1.2rem; }
+  .play-btn {
+    background: var(--accent); border: none; color: white; font-size: 1.4rem;
+    padding: 14px 30px; border-radius: 999px; cursor: pointer; margin-bottom: 18px;
+  }
+  .play-btn:active { transform: scale(.97); }
+  .choices { display: grid; gap: 10px; }
+  .choice {
+    background: #2e3342; border: 2px solid transparent; color: var(--text);
+    padding: 20px; border-radius: 12px; font-size: 1.5rem; cursor: pointer;
+    transition: border-color .1s, background .1s;
+  }
+  .choice:hover { border-color: var(--accent); }
+  /* hover-to-see-Tagalog popup */
+  .hover-tip {
+    position: fixed; z-index: 9999; pointer-events: none; display: none;
+    background: var(--accent); color: #fff; font-size: 1.7rem; font-weight: 700;
+    padding: 10px 18px; border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.45);
+    max-width: 80vw; text-align: center; letter-spacing: .3px;
+  }
+  .choice.correct { background: var(--good); color: #10241a; font-weight: 700; }
+  .choice.wrong { background: var(--bad); color: #2a1010; font-weight: 700; }
+  .choice:disabled { cursor: default; }
+  .verdict { min-height: 36px; margin-top: 14px; font-weight: 600; font-size: 1.3rem; }
+  .verdict.good { color: var(--good); }
+  .verdict.bad { color: var(--bad); }
+  .row { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .ghost-btn {
+    background: none; border: 1px solid #3a4054; color: var(--muted);
+    padding: 12px 20px; border-radius: 10px; cursor: pointer; font-size: 1.15rem;
+  }
+  .ghost-btn:hover { color: var(--text); border-color: var(--accent); }
+  #importBox { display: none; width: 100%; max-width: 440px; margin-top: 16px; }
+  #importBox textarea {
+    width: 100%; height: 140px; background: var(--card); color: var(--text);
+    border: 1px solid #3a4054; border-radius: 10px; padding: 12px; font-size: 1.15rem;
+  }
+  .voice-note { color: var(--muted); font-size: 1rem; margin-top: 14px; max-width: 560px; text-align: center; }
+  #settingsBox { display: none; background: var(--card); border-radius: 14px; padding: 18px; margin-top: 16px; }
+  .settings-row { display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; margin-bottom: 12px; }
+  .settings-row:last-child { margin-bottom: 0; }
+  .settings-row label { font-size: 1.15rem; }
+  #phraseBox { margin-top: 10px; min-height: 0; }
+  .phrase-tl { font-size: 1.4rem; font-weight: 600; color: var(--text); }
+  .phrase-en { font-size: 1.1rem; color: var(--muted); margin-top: 2px; }
+  #soundSelect, #modeSelect, #apiKeyInput, #newCapSelect, #revSelect, #phraseSelect {
+    background: #2e3342; color: var(--text); border: 1px solid #3a4054;
+    border-radius: 10px; padding: 10px 14px; font-size: 1.15rem;
+  }
+  #typedArea { display: none; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  #typedInput {
+    background: #2e3342; color: var(--text); border: 2px solid #3a4054;
+    border-radius: 12px; padding: 16px; font-size: 1.5rem; width: 100%; max-width: 320px;
+    text-align: center;
+  }
+  #typedInput:focus { outline: none; border-color: var(--accent); }
+  #sessBar { width: 100%; max-width: 560px; height: 8px; background: #2e3342; border-radius: 4px; margin-bottom: 14px; overflow: hidden; display: none; }
+  #sessFill { height: 100%; width: 0%; background: var(--good); border-radius: 4px; transition: width .3s; }
+  #studyTimer {
+    position: fixed; top: 10px; right: 10px; z-index: 50;
+    display: flex; align-items: center; gap: 8px;
+    background: var(--card); border: 1px solid #3a4054; border-radius: 999px;
+    padding: 6px 12px; font-size: .95rem; box-shadow: 0 2px 10px rgba(0,0,0,.3);
+  }
+  #studyTimer .tt-total { color: var(--muted); }
+  #studyTimer .tt-cd { font-weight: 700; font-variant-numeric: tabular-nums; min-width: 56px; text-align: center; }
+  #studyTimer .tt-cd.alarm { color: var(--bad); animation: ttflash .6s steps(1) infinite; }
+  @keyframes ttflash { 50% { opacity: .35; } }
+  #studyTimer .tt-btn {
+    background: #2e3342; border: none; color: var(--text); cursor: pointer;
+    width: 30px; height: 30px; border-radius: 50%; font-size: .9rem;
+  }
+  #studyTimer .tt-btn:hover { background: var(--accent); }
+</style>
+</head>
+<body>
+  <div id="studyTimer">
+    <span class="tt-total" id="ttTotal">⏱ 0h 0m</span>
+    <span class="tt-cd" id="ttCountdown">60:00</span>
+    <button class="tt-btn" id="ttToggle" title="Start / pause the countdown">▶</button>
+    <button class="tt-btn" id="ttSet" title="Set countdown length">⏲</button>
+  </div>
+  <h1>Kaipher Practice</h1>
+  <div class="sub" id="subTitle">Pick a category to start</div>
+
+  <!-- HOME -->
+  <div id="homeScreen">
+    <div class="deck-toggle">
+      <button id="deckWords" class="active">📚 Words</button>
+      <button id="deckSentences">💬 Sentences</button>
+      <button id="deckConj">🧩 Conjugation</button>
+      <button id="deckJudge">🤔 Makes Sense?</button>
+    </div>
+    <div class="learned-banner" id="learnedBanner"></div>
+    <button id="startHereBtn">▶ Start Today’s Practice</button>
+    <div id="startHereHint">Just click — I’ll pick the right cards for you</div>
+    <div class="cat-grid" id="catGrid"></div>
+    <div class="row">
+      <button class="ghost-btn" id="importBtn">＋ Add words</button>
+      <button class="ghost-btn" id="settingsBtn">⚙️ Settings</button>
+      <button class="ghost-btn" id="resetBtn">Reset progress</button>
+    </div>
+    <div id="settingsBox">
+      <div class="settings-row">
+        <label for="soundSelect">Win sound:</label>
+        <select id="soundSelect"></select>
+        <button class="ghost-btn" id="previewSoundBtn">▶ Preview</button>
+      </div>
+      <div class="settings-row">
+        <input type="file" id="soundFile" accept="audio/*" style="display:none">
+        <button class="ghost-btn" id="addSoundBtn">＋ Add sound (audio file)</button>
+        <button class="ghost-btn" id="deleteSoundBtn" style="display:none">🗑 Remove this sound</button>
+      </div>
+      <div class="settings-row">
+        <label for="modeSelect">Answer mode:</label>
+        <select id="modeSelect">
+          <option value="choice">Multiple choice</option>
+          <option value="typed">Typed answer (harder, sticks better)</option>
+        </select>
+      </div>
+      <div class="settings-row">
+        <label for="apiKeyInput">Haiku key:</label>
+        <input type="password" id="apiKeyInput" placeholder="sk-ant-… (optional, for typo judging)">
+        <button class="ghost-btn" id="saveKeyBtn">Save key</button>
+      </div>
+      <div class="settings-row">
+        <label for="newCapSelect">Words in play:</label>
+        <select id="newCapSelect">
+          <option value="3">3</option><option value="5">5</option>
+          <option value="10">10</option><option value="20">20</option>
+        </select>
+        <label for="revSelect">Reverse cards:</label>
+        <select id="revSelect"><option value="on">On</option><option value="off">Off</option></select>
+        <label for="phraseSelect">Phrases:</label>
+        <select id="phraseSelect"><option value="on">On</option><option value="off">Off</option></select>
+      </div>
+      <div class="settings-row">
+        <input type="file" id="backupFile" accept=".json" style="display:none">
+        <button class="ghost-btn" id="exportBtn">⬇ Export backup</button>
+        <button class="ghost-btn" id="importBackupBtn">⬆ Import backup</button>
+      </div>
+    </div>
+    <div id="importBox">
+      <p style="color:var(--muted);font-size:1.05rem;margin-bottom:6px">One per line: <code>tagalog = english</code> (goes into "My Words")</p>
+      <textarea id="importText" placeholder="nagtatrabaho = working&#10;kumakain = eating"></textarea>
+      <div class="row">
+        <button class="ghost-btn" id="importSave">Save words</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- QUIZ -->
+  <div id="quizScreen">
+    <div class="quiz-head">
+      <button class="ghost-btn" id="homeBtn">← Home</button>
+      <span class="cat-label" id="catLabel"></span>
+      <button class="ghost-btn" id="modeBtn" style="margin-left:auto">⌨️ Typed: off</button>
+    </div>
+    <div class="stats">
+      <span>Score: <b id="score">0</b></span>
+      <span>Streak: <b id="streak">0</b>🔥</span>
+      <span>Best: <b id="best">0</b></span>
+      <span id="timeWrap" style="display:none">⏱ <b id="timeLeft">60</b>s</span>
+    </div>
+    <div id="sessBar"><div id="sessFill"></div></div>
+    <div class="card">
+      <div class="word-area">
+        <div id="wordDisplay" class="hidden-word">(listen first — tap 👁 to peek)</div>
+      </div>
+      <div id="tlLegend"></div>
+      <div class="choices" id="choices"></div>
+      <div id="typedArea">
+        <input type="text" id="typedInput" placeholder="type the English meaning…" autocomplete="off" autocapitalize="off">
+        <button class="play-btn" id="typedSubmit" style="margin:0">Check</button>
+      </div>
+      <div class="verdict" id="verdict"></div>
+      <div id="phraseBox"></div>
+      <button class="play-btn" id="playBtn" style="margin:18px auto 0; display:block">🔊 Play word</button>
+    </div>
+    <div class="row">
+      <button class="ghost-btn" id="peekBtn">👁 Show word</button>
+      <button class="ghost-btn" id="skipBtn">Skip →</button>
+    </div>
+  </div>
+
+  <div class="voice-note" id="voiceNote"></div>
+
+<script>
+/* inlined: practicetag.js */
+// Tagalog word data, grouped by category — ORDERED AS A LEARNING PATH (top = learn first).
+// Edit freely: add words as ["tagalog","english"] pairs, or add whole new categories.
+// Format: "Category Name": { emoji: "🔤", words: [ [tl, en], ... ] }
+// NOTE: progress is keyed to the exact Tagalog spelling — don't rename existing words casually.
+
+const WORD_CATEGORIES = {
+  "Essentials": {
+    emoji: "⭐",
+    words: [
+      ["oo","yes"],["hindi","no / not"],["salamat","thank you"],["gusto","want / like"],
+      ["ayaw","don't want"],["alam","know"],["marami","many"],["konti","few / a little"],
+      ["lahat","all"],["wala","none / nothing"],["may","there is / have"],["huwag","don't"],
+      ["muna","first / for now"],["ulit","again"],["totoo","true / real"],["siguro","maybe / probably"],
+      ["meron","there is / have"],["na","already / now"],["pa","still / yet"],["nga","really / indeed"],
+      ["pala","oh, I see (realization)"],["kaya","so / therefore"],["yata","perhaps / I think"],["parang","seems like / sort of"],
+      ["masyado","too much"],["kahit","even / even if"],["basta","as long as / just because"],["saka","and then / besides"],
+      ["mga","plural marker"],["yung","the / that one"],["nasa","is at / located in"],["galing","from / came from"],
+      ["iba","other / different"],["ibang","another (linked)"],["ganito","like this"],["ganyan","like that (near you)"],
+      ["ganoon","like that (far)"],["mas","more (comparative)"],["pinaka","most (superlative)"],["lalo","even more / especially"],
+      ["higit","more than / over"],["halos","almost"],["agad","immediately / right away"],["bigla","suddenly"],
+      ["palagi","always"],["madalas","often"],["unti-unti","little by little"],["dahan-dahan","slowly / carefully"],
+      ["ko","my / by me"],["mo","your / by you"],["niya","his / her / by him-her"],["natin","our (incl) / by us"],
+      ["namin","our (excl) / by us"],["ninyo","your (pl) / by you"],["nila","their / by them"],["atin","ours (incl)"],
+      ["amin","ours (excl)"],["kanila","theirs"],["sarili","self / own"],["gawa","make / do (root)"],
+      ["gawin","to do / make"],["sabi","said / says"],["sabihin","to say"],["tingin","look / opinion"],
+      ["tingnan","to look at"],["dala","bring / carry"],["dalhin","to bring"],["punta","go (root)"],
+      ["balik","return (root)"],["alis","leave / remove (root)"],["tigil","stop"],["tuloy","continue / come in"],
+      ["hinto","stop / halt"],["galaw","move"],["sundin","to follow / obey"],["subukan","to try"],
+      ["gamitin","to use"],["hanapin","to look for"],["bigyan","to give to"],["bagay","thing"],
+      ["gamit","use / belongings"],["uri","kind / type"],["paraan","way / method"],["dahilan","reason"],
+      ["halimbawa","example"],["problema","problem"],["balita","news"],["kuwento","story"],
+      ["salita","word"],["wika","language"],["tulong","help"],["gawain","task / activity"],
+      ["plano","plan"],["pangalan","name"],["edad","age"],["buhay","life / alive"],
+      ["mundo","world"],["tao","person"],["lugar","place"],["panahon","time / weather"],
+      ["kasama","companion / together with"],["importante","important"],
+      ["intindihin","to understand"],["unawain","to comprehend"],["ipaliwanag","to explain"],["ipakita","to show"],
+      ["magkita","to meet"],["mag-usap","to talk / discuss"],["tumawag","to call"],["humingi","to ask for / request"],
+      ["sumama","to go along / join"],["sumunod","to follow / obey"],["pumasok","to enter / go in"],["lumabas","to go out"],
+      ["sumakay","to ride / board"],["bumaba","to get off / go down"],["umakyat","to go up / climb"],["manood","to watch"],
+      ["magbihis","to get dressed"],["magpalit","to change / switch"],["piliin","to choose"],["isipin","to think about"],
+      ["malaman","to find out"],["sunduin","to pick up (someone)"],["ihatid","to drop off / take someone"],["abutin","to reach / hand over"],
+      ["kunin","to take / get"],["ipasok","to put in / insert"],["ilabas","to take out"],["tanggalin","to remove / take off"],
+      ["magtiwala","to trust"],["mag-alala","to worry"],["matuto","to learn"],["maintindihan","to understand / grasp"],
+      ["maranasan","to experience"],["mangyari","to happen"],["magtagal","to take long / last"],["matapos","to be finished"],
+      ["magsimula","to begin"],["muli","again / anew"],["noon","back then / before"],["habang","while / as"],
+      ["pagkatapos","after / afterwards"],["samantala","meanwhile"],["upang","in order to"],["ngunit","but (formal)"],
+      ["subalit","however"],["gayunpaman","nevertheless"],["samakatuwid","therefore"],["maliban","except"],
+      ["bukod","aside from"],["pati","including / also"],["tuwing","every time / whenever"],["bawat","each / every"],
+      ["kadalasan","usually"],["karaniwan","usual / ordinary"],["paminsan-minsan","occasionally"],["madalang","seldom"],
+      ["labis","excessive / too much"],["sadya","intentionally / really"],["sandali","a moment"],["wakas","end"],
+      ["katapusan","the end"],["bahagi","part"],["bilang","number / count"],["dami","quantity / amount"],
+      ["sukat","size / measure"],["tagal","duration"],["lakas","strength"],["ganda","beauty"],
+      ["saya","joy / fun"],["katotohanan","truth"],["kasinungalingan","a lie"],["kahulugan","meaning"],
+      ["kahalagahan","importance"],["pag-asa","hope"],["pangarap","dream / aspiration"],["panaginip","dream (in sleep)"],
+      ["isip","mind / thought"],["damdamin","feelings"],["katawan","body"],["kaluluwa","soul"],
+      ["kapwa","fellow human"],["kapitbahay","neighbor"],["kakilala","acquaintance"],["kaaway","enemy"],
+      ["katrabaho","coworker"],["pangyayari","event / happening"],["karanasan","experience"],["pagkakataon","opportunity / chance"],
+      ["layunin","goal / purpose"],["hangarin","aim / desire"],["kalagayan","situation / condition"],["sitwasyon","situation"],
+      ["kalidad","quality"],["halaga","value / worth"],["hangganan","limit / boundary"],["kanino","whose / to whom"],
+      ["alinman","any / whichever"],["sinuman","anyone"],["anuman","anything / whatever"]
+    ]
+  },
+  "Greetings & Phrases": {
+    emoji: "👋",
+    words: [
+      ["kumusta","how are you"],["magandang umaga","good morning"],["magandang hapon","good afternoon"],["magandang gabi","good evening"],
+      ["paalam","goodbye"],["ingat","take care"],["sige","okay / go ahead"],["po","politeness marker"],
+      ["opo","yes (polite)"],["walang anuman","you're welcome"],["pasensya na","sorry"],["mahal kita","I love you"],
+      ["tara na","let's go"],["saglit lang","just a moment"]
+    ]
+  },
+  "Pronouns": {
+    emoji: "🙋",
+    words: [
+      ["ako","I / me"],["ikaw","you"],["siya","he / she"],["kami","we (not including you)"],
+      ["tayo","we (including you)"],["kayo","you (plural / polite)"],["sila","they"],["ito","this"],
+      ["iyan","that (near you)"],["iyon","that (far)"],["akin","mine"],["iyo","yours"],
+      ["kanya","his / hers"]
+    ]
+  },
+  "Question Words": {
+    emoji: "❓",
+    words: [
+      ["saan","where"],["ano","what"],["sino","who"],["kailan","when"],
+      ["bakit","why"],["paano","how"],["ilan","how many"],["magkano","how much (price)"],
+      ["alin","which"]
+    ]
+  },
+  "Numbers": {
+    emoji: "🔢",
+    words: [
+      ["isa","one"],["dalawa","two"],["tatlo","three"],["apat","four"],
+      ["lima","five"],["anim","six"],["pito","seven"],["walo","eight"],
+      ["siyam","nine"],["sampu","ten"],["dalawampu","twenty"],["isang daan","one hundred"],
+      ["isang libo","one thousand"]
+    ]
+  },
+  "Time & Place": {
+    emoji: "⏰",
+    words: [
+      ["araw","sun / day"],["umaga","morning"],["gabi","night"],["ngayon","now / today"],
+      ["bukas","tomorrow"],["kahapon","yesterday"],["dito","here"],["doon","there"],
+      ["malayo","far"],["malapit","near"],["oras","hour / time"],["minuto","minute"],
+      ["buwan","month / moon"],["taon","year"],["mamaya","later"],["kanina","earlier"],
+      ["tanghali","noon"],["hapon","afternoon"],["madaling-araw","dawn"],["lagi","always"],
+      ["minsan","sometimes / once"],["bihira","rarely"],["araw-araw","every day"]
+    ]
+  },
+  "Days of the Week": {
+    emoji: "📅",
+    words: [
+      ["Lunes","Monday"],["Martes","Tuesday"],["Miyerkules","Wednesday"],["Huwebes","Thursday"],
+      ["Biyernes","Friday"],["Sabado","Saturday"],["Linggo","Sunday / week"]
+    ]
+  },
+  "Family": {
+    emoji: "👨‍👩‍👧",
+    words: [
+      ["nanay","mother"],["tatay","father"],["ate","older sister"],["kuya","older brother"],
+      ["lola","grandmother"],["lolo","grandfather"],["anak","son / daughter"],["kapatid","sibling"],
+      ["asawa","spouse"],["tito","uncle"],["tita","aunt"],["pamangkin","niece / nephew"],
+      ["apo","grandchild"],["pinsan","cousin"],["magulang","parent"]
+    ]
+  },
+  "Food & Drink": {
+    emoji: "🍚",
+    words: [
+      ["pagkain","food"],["tubig","water"],["kanin","cooked rice"],["tinapay","bread"],
+      ["itlog","egg"],["isda","fish"],["manok","chicken"],["baboy","pig / pork"],
+      ["gatas","milk"],["kape","coffee"],["asukal","sugar"],["asin","salt"],
+      ["gulay","vegetable"],["prutas","fruit"],["saging","banana"],["mangga","mango"],
+      ["mansanas","apple"],["kamatis","tomato"],["sibuyas","onion"],["bawang","garlic"],
+      ["toyo","soy sauce"],["suka","vinegar"],["karne","meat"],["baka","cow / beef"],
+      ["hipon","shrimp"],["pusit","squid"],["sabaw","soup / broth"],["ulam","main dish"],
+      ["almusal","breakfast"],["tanghalian","lunch"],["hapunan","dinner"],["meryenda","snack"],
+      ["masarap","delicious"],["gutom","hungry"],["uhaw","thirsty"],["busog","full (from eating)"],
+      ["matamis","sweet"],["maalat","salty"],["maasim","sour"],["mapait","bitter"],
+      ["maanghang","spicy"]
+    ]
+  },
+  "Feelings & States": {
+    emoji: "😊",
+    words: [
+      ["takot","fear / afraid"],["galit","anger / angry"],["tuwa","joy / delight"],["lungkot","sadness"],
+      ["pagod","tired"],["antok","sleepy"],["inis","annoyed"],["selos","jealous"],
+      ["hiya","shyness / embarrassment"],["gulat","surprised"],["sabik","eager / excited"],["lito","confused"],
+      ["ginhawa","relief / comfort"],["nerbiyos","nervousness"],["sakit","pain / sickness"],["lasing","drunk"]
+    ]
+  },
+  "Adjectives": {
+    emoji: "✨",
+    words: [
+      ["maganda","beautiful"],["mabuti","good / fine"],["masaya","happy"],["malungkot","sad"],
+      ["malaki","big"],["maliit","small"],["mainit","hot"],["malamig","cold"],
+      ["bago","new"],["mabilis","fast"],["mabagal","slow"],["mahaba","long"],
+      ["maikli","short (length)"],["mataas","tall / high"],["mababa","low / short"],["mabigat","heavy"],
+      ["magaan","light (weight)"],["malinis","clean"],["marumi","dirty"],["mura","cheap"],
+      ["mahal","expensive / dear"],["matanda","old (person)"],["payat","thin (person)"],["mataba","fat"],
+      ["malakas","strong"],["mahina","weak"],["matalino","smart"],["matapang","brave"],
+      ["mabait","kind"],["masungit","grumpy"],["tahimik","quiet"],["maingay","noisy"],
+      ["mahirap","difficult / poor"],["madali","easy"],["masama","bad"],["basa","wet"],
+      ["tuyo","dry"],["sarado","closed"]
+    ]
+  },
+  "Verbs": {
+    emoji: "🏃",
+    words: [
+      ["trabaho","work / job"],["nagtatrabaho","working"],["kumain","ate"],["uminom","drank"],
+      ["matulog","to sleep"],["bumili","bought"],["magluto","to cook"],["maglaro","to play"],
+      ["kumanta","sang"],["tumakbo","ran"],["maglakad","to walk"],["magsalita","to speak"],
+      ["makinig","to listen"],["magbasa","to read"],["magsulat","to write"],["umuwi","to go home"],
+      ["pumunta","went"],["maligo","to bathe"],["maghugas","to wash"],["maglinis","to clean"],
+      ["mag-aral","to study"],["magturo","to teach"],["gumising","to wake up"],["umupo","to sit"],
+      ["tumayo","to stand"],["umalis","to leave"],["dumating","to arrive"],["bumalik","to return"],
+      ["magbigay","to give"],["kumuha","to get / take"],["maghanap","to look for"],["makita","to see"],
+      ["marinig","to hear"],["umiyak","to cry"],["tumawa","to laugh"],["ngumiti","to smile"],
+      ["sumigaw","to shout"],["maghintay","to wait"],["tumulong","to help"],["magtanong","to ask"],
+      ["sumagot","to answer"],["magbayad","to pay"],["maglaba","to do laundry"],["mamili","to shop"],
+      ["magmaneho","to drive"],["lumangoy","to swim"],["tumalon","to jump"],["humiga","to lie down"],
+      ["magpahinga","to rest"],["mag-isip","to think"],["maalala","to remember"],["makalimutan","to forget"],
+      ["magmahal","to love"],["magalit","to get angry"],["matakot","to be afraid"]
+    ]
+  },
+  "Grammar Words": {
+    emoji: "🔗",
+    words: [
+      ["at","and"],["pero","but"],["o","or"],["kung","if"],
+      ["kapag","when / whenever"],["dahil","because"],["kasi","because (casual)"],["para","for / so that"],
+      ["din","also / too"],["lang","only / just"],["ba","question marker"],["naman","on the other hand / also"],
+      ["daw","they say / reportedly"]
+    ]
+  },
+  "Useful Words": {
+    emoji: "✅",
+    words: [
+      ["pwede","can / allowed"],["kailangan","need / must"],["dapat","should / ought"],["ayos","okay / fine"],
+      ["tama","correct / right"],["mali","wrong"],["sobra","too much / excess"],["kulang","lacking / not enough"],
+      ["sapat","enough"],["handa","ready"],["tapos","done / then"],["simula","start / beginning"],
+      ["bahala na","come what may"],["medyo","somewhat / a bit"],["talaga","really / truly"]
+    ]
+  },
+  "Body": {
+    emoji: "💪",
+    words: [
+      ["kamay","hand"],["paa","foot"],["mata","eye"],["ilong","nose"],
+      ["bibig","mouth"],["tenga","ear"],["ulo","head"],["puso","heart"],
+      ["buhok","hair"],["ngipin","tooth"],["dila","tongue"],["leeg","neck"],
+      ["balikat","shoulder"],["braso","arm"],["daliri","finger"],["tiyan","stomach"],
+      ["likod","back"],["tuhod","knee"],["binti","leg"],["balat","skin"],
+      ["dugo","blood"],["buto","bone"],["mukha","face"]
+    ]
+  },
+  "House & Things": {
+    emoji: "🏠",
+    words: [
+      ["bahay","house"],["mesa","table"],["upuan","chair"],["pinto","door"],
+      ["bintana","window"],["kotse","car"],["pera","money"],["libro","book"],
+      ["kusina","kitchen"],["banyo","bathroom"],["silid","room"],["sala","living room"],
+      ["hagdan","stairs"],["bubong","roof"],["sahig","floor"],["dingding","wall"],
+      ["kama","bed"],["unan","pillow"],["kumot","blanket"],["salamin","mirror / glasses"],
+      ["ilaw","light"],["susi","key"],["plato","plate"],["baso","drinking glass"],
+      ["kutsara","spoon"],["tinidor","fork"],["kutsilyo","knife"],["kaldero","cooking pot"],
+      ["basurahan","trash can"],["sabon","soap"],["tuwalya","towel"],["orasan","clock"]
+    ]
+  },
+  "People & Jobs": {
+    emoji: "👪",
+    words: [
+      ["lalaki","man"],["babae","woman"],["bata","child"],["pamilya","family"],
+      ["kaibigan","friend"],["guro","teacher"],["doktor","doctor"],["nars","nurse"],
+      ["pulis","police officer"],["drayber","driver"],["magsasaka","farmer"],["mangingisda","fisherman"],
+      ["tindera","vendor / shopkeeper"],["kusinero","cook / chef"],["estudyante","student"],["abogado","lawyer"],
+      ["inhinyero","engineer"]
+    ]
+  },
+  "Places": {
+    emoji: "📍",
+    words: [
+      ["paaralan","school"],["palengke","market"],["simbahan","church"],["lungsod","city"],
+      ["bayan","town"],["probinsya","province"],["kalye","street"],["daan","road / way"],
+      ["tulay","bridge"],["ospital","hospital"],["botika","pharmacy"],["bangko","bank"],
+      ["tindahan","store"],["paliparan","airport"],["parke","park"],["opisina","office"],
+      ["bukid","farm / field"],["tabing-dagat","beach"]
+    ]
+  },
+  "Directions & Position": {
+    emoji: "🧭",
+    words: [
+      ["kanan","right"],["kaliwa","left"],["diretso","straight ahead"],["taas","up / top"],
+      ["baba","down / bottom"],["loob","inside"],["labas","outside"],["harap","front"],
+      ["likuran","behind / rear"],["gitna","middle / center"],["tabi","side / beside"],["itaas","above"],
+      ["ibaba","below"],["sulok","corner"],["pagitan","between"]
+    ]
+  },
+  "Colors": {
+    emoji: "🎨",
+    words: [
+      ["pula","red"],["asul","blue"],["dilaw","yellow"],["berde","green"],
+      ["itim","black"],["puti","white"],["kayumanggi","brown"],["rosas","pink"],
+      ["kahel","orange (color)"],["lila","purple"],["kulay-abo","gray"]
+    ]
+  },
+  "Clothing": {
+    emoji: "👕",
+    words: [
+      ["damit","clothes"],["sapatos","shoes"],["tsinelas","slippers"],["pantalon","pants"],
+      ["palda","skirt"],["sumbrero","hat"],["medyas","socks"],["sinturon","belt"],
+      ["relo","watch (wrist)"]
+    ]
+  },
+  "Money & Shopping": {
+    emoji: "🛒",
+    words: [
+      ["presyo","price"],["bayad","payment"],["sukli","change (money back)"],["barya","coins"],
+      ["diskwento","discount"],["utang","debt / credit"],["resibo","receipt"],["bili","purchase / buy"],
+      ["benta","sale / sell"],["kita","earnings / income"],["gastos","expense"],["ipon","savings"],
+      ["bayarin","bill / due payment"]
+    ]
+  },
+  "Travel & Transport": {
+    emoji: "🚍",
+    words: [
+      ["sasakyan","vehicle"],["dyip","jeepney"],["bus","bus"],["tren","train"],
+      ["eroplano","airplane"],["barko","ship"],["bangka","boat"],["bisikleta","bicycle"],
+      ["motorsiklo","motorcycle"],["traysikel","tricycle"],["biyahe","trip / travel"],["pamasahe","fare"],
+      ["pasahero","passenger"],["tiket","ticket"],["bagahe","luggage"]
+    ]
+  },
+  "Health & Sickness": {
+    emoji: "🤒",
+    words: [
+      ["lagnat","fever"],["ubo","cough"],["sipon","colds / runny nose"],["sugat","wound"],
+      ["gamot","medicine"],["pawis","sweat"],["luha","tears"],["hilo","dizziness"],
+      ["pilay","sprain"],["bukol","lump / bump"],["paltos","blister"],["galos","scratch / graze"]
+    ]
+  },
+  "Cooking": {
+    emoji: "🍳",
+    words: [
+      ["luto","cooked"],["hilaw","raw / unripe"],["prito","fried"],["nilaga","boiled stew"],
+      ["inihaw","grilled"],["ginisa","sautéed"],["hiwain","to slice"],["timpla","seasoning / mix"],
+      ["sangkap","ingredient"],["takip","lid / cover"],["kawali","frying pan"],["sandok","ladle"],
+      ["lutong-bahay","home-cooked"]
+    ]
+  },
+  "School & Office": {
+    emoji: "🏫",
+    words: [
+      ["aralin","lesson"],["takdang-aralin","homework"],["pagsusulit","exam / test"],["papel","paper"],
+      ["lapis","pencil"],["bolpen","ballpen"],["pisara","blackboard"],["kuwaderno","notebook"],
+      ["klase","class"],["sagot","answer"],["tanong","question"],["proyekto","project"],
+      ["grado","grade / level"],["pulong","meeting"]
+    ]
+  },
+  "Sports & Hobbies": {
+    emoji: "⚽",
+    words: [
+      ["laro","game / play"],["palakasan","sports"],["basketbol","basketball"],["bola","ball"],
+      ["sayaw","dance"],["kanta","song"],["gitara","guitar"],["larawan","photo / picture"],
+      ["pelikula","movie"],["ehersisyo","exercise"],["hilig","hobby / interest"],["libangan","pastime / leisure"]
+    ]
+  },
+  "Nature & Animals": {
+    emoji: "🌿",
+    words: [
+      ["aso","dog"],["pusa","cat"],["ulan","rain"],["hangin","wind / air"],
+      ["apoy","fire"],["lupa","ground / earth"],["langit","sky"],["dagat","sea"],
+      ["bundok","mountain"],["puno","tree"],["bulaklak","flower"],["ibon","bird"],
+      ["daga","mouse / rat"],["ahas","snake"],["palaka","frog"],["gagamba","spider"],
+      ["langgam","ant"],["lamok","mosquito"],["ipis","cockroach"],["kabayo","horse"],
+      ["kalabaw","carabao / water buffalo"],["kambing","goat"],["butiki","house lizard / gecko"],["paru-paro","butterfly"],
+      ["bagyo","storm / typhoon"],["kidlat","lightning"],["kulog","thunder"],["baha","flood"],
+      ["lindol","earthquake"],["ulap","cloud"],["bituin","star"],["init","heat"],
+      ["lamig","coldness"],["tag-ulan","rainy season"],["tag-init","hot season / summer"]
+    ]
+  },
+  "Action Verbs II": {
+    emoji: "🤸",
+    words: [
+      ["buksan","to open"],["isara","to close"],["itulak","to push"],["hilahin","to pull"],
+      ["ilagay","to put"],["alisin","to remove"],["buhatin","to lift / carry"],["hawakan","to hold"],
+      ["bitawan","to let go"],["bilangin","to count"],["sukatin","to measure"],["takpan","to cover"],
+      ["punasan","to wipe"],["walisin","to sweep"]
+    ]
+  }
+};
+
+</script>
+<script>
+/* inlined: practicesentences.js */
+// Tagalog everyday-sentence data — SAME format as practicetag.js.
+// Each entry is [tagalog_sentence, english_meaning]. The app treats a sentence
+// exactly like a word: it's spoken via TTS, answered by choice or typing, and
+// tracked in SRS keyed to the exact Tagalog text. Keep sentences natural & short.
+// NOTE: progress is keyed to the exact Tagalog spelling — don't rephrase existing lines casually.
+
+const SENTENCE_CATEGORIES = {
+  "Daily Basics": {
+    emoji: "🗣️",
+    words: [
+      ["Magandang umaga sa iyo","Good morning to you"],
+      ["Kumusta ka na?","How are you?"],
+      ["Mabuti naman ako","I'm doing well"],
+      ["Ano ang pangalan mo?","What is your name?"],
+      ["Taga-saan ka?","Where are you from?"],
+      ["Salamat sa tulong mo","Thank you for your help"],
+      ["Walang anuman","You're welcome"],
+      ["Sandali lang po","Just a moment, please"],
+      ["Pasensya na po","Sorry / excuse me"],
+      ["Hindi ko maintindihan","I don't understand"],
+      ["Pakiulit mo nga","Please repeat that"],
+      ["Mamaya na lang","Maybe later"]
+    ]
+  },
+  "Around the House": {
+    emoji: "🏠",
+    words: [
+      ["Gising na!","Wake up!"],
+      ["Kakain na tayo","Let's eat now"],
+      ["Tapos na akong kumain","I'm done eating"],
+      ["Maghuhugas ako ng pinggan","I'll wash the dishes"],
+      ["Maglilinis ako ng bahay","I'll clean the house"],
+      ["Naliligo ako","I'm taking a bath"],
+      ["Matutulog na ako","I'm going to sleep now"],
+      ["Pagod na ako","I'm tired already"],
+      ["Buksan mo ang bintana","Open the window"],
+      ["Isara mo ang pinto","Close the door"],
+      ["Patay na ang ilaw","The light is off"],
+      ["Saan ang banyo?","Where is the bathroom?"]
+    ]
+  },
+  "Eating & Food": {
+    emoji: "🍽️",
+    words: [
+      ["Gutom na ako","I'm hungry now"],
+      ["Ang sarap nito!","This is so delicious!"],
+      ["Busog na ako","I'm full already"],
+      ["Gusto ko ng kape","I want coffee"],
+      ["Pwede bang tubig?","Can I have water?"],
+      ["Ano ang ulam natin?","What's our dish?"],
+      ["Masarap ang luto mo","Your cooking is delicious"],
+      ["Kain tayo","Let's eat"],
+      ["Ayaw ko ng maanghang","I don't want spicy"],
+      ["Dagdag pa ng kanin","More rice, please"],
+      ["Tubig naman","Water, please"]
+    ]
+  },
+  "Out & About": {
+    emoji: "🛍️",
+    words: [
+      ["Saan ka pupunta?","Where are you going?"],
+      ["Pupunta ako sa palengke","I'm going to the market"],
+      ["Magkano ang pamasahe?","How much is the fare?"],
+      ["Para po!","Stop here, please!"],
+      ["Malayo pa ba?","Is it still far?"],
+      ["Malapit na tayo","We're almost there"],
+      ["Magkano ito?","How much is this?"],
+      ["Magkano lahat?","How much in total?"],
+      ["Mahal naman","That's expensive"],
+      ["Pwede bang tawad?","Can I get a discount?"],
+      ["Bigyan mo ako ng isa","Give me one"]
+    ]
+  },
+  "Feelings & Small Talk": {
+    emoji: "💬",
+    words: [
+      ["Masaya ako ngayon","I'm happy today"],
+      ["Miss na kita","I miss you already"],
+      ["Mahal kita","I love you"],
+      ["Ingat ka palagi","Always take care"],
+      ["Antok na ako","I'm sleepy now"],
+      ["Okay lang ako","I'm okay"],
+      ["Huwag kang mag-alala","Don't worry"],
+      ["Galit ka ba sa akin?","Are you angry at me?"],
+      ["Salamat sa lahat","Thank you for everything"],
+      ["Nakakatawa ka","You're funny"],
+      ["Sige, ingat ka","Okay, take care"]
+    ]
+  },
+  "Questions People Ask": {
+    emoji: "❓",
+    words: [
+      ["Anong oras na?","What time is it?"],
+      ["Saan ka nakatira?","Where do you live?"],
+      ["Ilang taon ka na?","How old are you?"],
+      ["May asawa ka na ba?","Are you married?"],
+      ["Anong trabaho mo?","What is your job?"],
+      ["Kumain ka na ba?","Have you eaten?"],
+      ["Saan ka galing?","Where did you come from?"],
+      ["Anong ginagawa mo?","What are you doing?"],
+      ["Pwede ba kitang tulungan?","Can I help you?"],
+      ["Naiintindihan mo ba?","Do you understand?"],
+      ["Gusto mo bang sumama?","Do you want to come along?"]
+    ]
+  },
+  "Work & School": {
+    emoji: "💼",
+    words: [
+      ["May trabaho ako bukas","I have work tomorrow"],
+      ["Pagod ako sa trabaho","I'm tired from work"],
+      ["May meeting ako mamaya","I have a meeting later"],
+      ["Nag-aaral ako ng Tagalog","I'm studying Tagalog"],
+      ["Tapos na ang klase","Class is over"],
+      ["Busy ako ngayon","I'm busy right now"],
+      ["May tanong ako","I have a question"],
+      ["Paki-bagalan ang pagsasalita","Please speak more slowly"],
+      ["Ano ang ibig sabihin nito?","What does this mean?"],
+      ["Marunong ka bang mag-Ingles?","Do you know English?"],
+      ["Konti lang ang Tagalog ko","My Tagalog is limited"]
+    ]
+  },
+  "Shopping & Money": {
+    emoji: "💸",
+    words: [
+      ["Pabili po","Excuse me, I'd like to buy (store greeting)"],
+      ["May mas mura ba?","Is there a cheaper one?"],
+      ["Bibili ako ng bigas","I'll buy rice"],
+      ["Wala akong barya","I don't have change"],
+      ["Isa pa po","One more, please"],
+      ["Iyan na lang","Just that one"],
+      ["Pwede bang card?","Can I pay by card?"],
+      ["Saan ang kahera?","Where is the cashier?"],
+      ["Dalawa po","Two, please"],
+      ["Ubos na ang pera ko","My money is all gone"],
+      ["Sukli po","My change, please"]
+    ]
+  },
+  "Directions & Travel": {
+    emoji: "🧭",
+    words: [
+      ["Diretso lang","Just go straight"],
+      ["Kumanan ka","Turn right"],
+      ["Kumaliwa ka","Turn left"],
+      ["Malapit lang dito","It's just near here"],
+      ["Sa kanto lang","Just at the corner"],
+      ["Saan ang sakayan?","Where is the terminal / stop?"],
+      ["Sakay na","Hop on"],
+      ["Bababa ako dito","I'm getting off here"],
+      ["Anong oras ang biyahe?","What time is the trip?"],
+      ["Naliligaw ako","I'm lost"],
+      ["Samahan mo ako","Come with me"]
+    ]
+  },
+  "Health & Emergencies": {
+    emoji: "🚑",
+    words: [
+      ["Tulong!","Help!"],
+      ["Masakit ang ulo ko","My head hurts"],
+      ["May sakit ako","I'm sick"],
+      ["May lagnat ako","I have a fever"],
+      ["Nahihilo ako","I'm dizzy"],
+      ["Okay ka lang ba?","Are you okay?"],
+      ["Tumawag ka ng doktor","Call a doctor"],
+      ["Saan ang ospital?","Where is the hospital?"],
+      ["Kailangan ko ng gamot","I need medicine"],
+      ["Nasaktan ako","I got hurt"],
+      ["Mag-ingat ka","Be careful"]
+    ]
+  },
+  "Weather & Plans": {
+    emoji: "⛅",
+    words: [
+      ["Umuulan na naman","It's raining again"],
+      ["Ang init ngayon","It's so hot today"],
+      ["Maganda ang panahon","The weather is nice"],
+      ["May bagyo daw","They say there's a storm"],
+      ["Anong plano mo bukas?","What's your plan tomorrow?"],
+      ["Wala akong plano","I have no plans"],
+      ["Gusto mo bang lumabas?","Do you want to go out?"],
+      ["Sama ka?","Are you coming along?"],
+      ["Bukas na lang","Tomorrow instead"],
+      ["Kita tayo mamaya","See you later"],
+      ["Mauna na ako","I'll go ahead"]
+    ]
+  },
+  "Family Talk": {
+    emoji: "👨‍👩‍👧",
+    words: [
+      ["Kumusta ang pamilya mo?","How is your family?"],
+      ["Nasaan si Nanay?","Where is Mom?"],
+      ["Tulog na ang bata","The child is asleep"],
+      ["Gising na ba siya?","Is he/she awake?"],
+      ["Anong oras ka uuwi?","What time will you come home?"],
+      ["Nasa bahay lang ako","I'm just at home"],
+      ["Nasa trabaho si Kuya","Kuya is at work"],
+      ["Magkita tayo sa Linggo","Let's meet on Sunday"],
+      ["Sunduin mo ako","Pick me up"],
+      ["Ihatid mo ako","Take me there / drop me off"],
+      ["Halika dito","Come here"]
+    ]
+  },
+  "Compliments & Praise": {
+    emoji: "🌟",
+    words: [
+      ["Ang galing mo!","You're so good / skilled!"],
+      ["Ang ganda mo","You're beautiful"],
+      ["Ang bait mo","You're so kind"],
+      ["Maraming salamat po","Thank you very much (polite)"],
+      ["Proud ako sa iyo","I'm proud of you"],
+      ["Binabati kita","Congratulations"],
+      ["Ang linis ng bahay mo","Your house is so clean"],
+      ["Bagay sa iyo iyan","That suits you"],
+      ["Ang talino mo","You're so smart"],
+      ["Idol kita","You're my idol / I look up to you"],
+      ["Galing-galing mo","Very impressive"]
+    ]
+  },
+  "Phone & Messages": {
+    emoji: "📱",
+    words: [
+      ["Tawagan mo ako","Call me"],
+      ["I-text mo ako","Text me"],
+      ["Sino ito?","Who is this?"],
+      ["Nasaan ka na?","Where are you now?"],
+      ["Malapit na ako","I'm almost there"],
+      ["Papunta na ako","I'm on my way"],
+      ["Lobat na ako","My battery is low"],
+      ["Walang signal dito","There's no signal here"],
+      ["May tawag ako","I have a call"],
+      ["Sagutin mo ang tawag","Answer the call"],
+      ["Nabasa mo ba ang text ko?","Did you read my text?"]
+    ]
+  },
+  "Time & Schedules": {
+    emoji: "⏳",
+    words: [
+      ["Maaga pa","It's still early"],
+      ["Huli na ako","I'm late"],
+      ["Sandali na lang","Just a moment more"],
+      ["Ngayon na!","Right now!"],
+      ["Hindi pa ako tapos","I'm not done yet"],
+      ["Tapos na ako","I'm done"],
+      ["Sa susunod na linggo","Next week"],
+      ["Kahapon pa","Since yesterday"],
+      ["Aalis ako nang alas-otso","I'll leave at eight"],
+      ["Anong araw ngayon?","What day is it today?"],
+      ["Wala nang oras","There's no more time"]
+    ]
+  }
+};
+
+</script>
+<script>
+/* inlined: practiceconjugation.js */
+// Tagalog verb CONJUGATION deck — aspect forms (completed / ongoing / contemplated),
+// organized by verb family. Same format as the other decks.
+// Format: "Category Name": { emoji: "🔤", words: [ [tagalog, english], ... ] }
+// NOTE: some base forms also exist in the Words deck — they share progress, which is fine.
+
+const CONJUGATION_CATEGORIES = {
+  "UM Verbs: Past (Completed)": {
+    emoji: "⏮",
+    words: [
+      ["kumain","ate"],["uminom","drank"],["bumili","bought"],["pumunta","went"],
+      ["tumakbo","ran"],["kumanta","sang"],["tumawa","laughed"],["umiyak","cried"],
+      ["lumangoy","swam"],["tumalon","jumped"],["umupo","sat down"],["tumayo","stood up"],
+      ["umalis","left"],["dumating","arrived"],["bumalik","returned"],["gumising","woke up"],
+      ["sumagot","answered"],["tumulong","helped"],["kumuha","got / took"],["sumayaw","danced"]
+    ]
+  },
+  "UM Verbs: Present (Ongoing)": {
+    emoji: "▶️",
+    words: [
+      ["kumakain","eating"],["umiinom","drinking"],["bumibili","buying"],["pumupunta","going"],
+      ["tumatakbo","running"],["kumakanta","singing"],["tumatawa","laughing"],["umiiyak","crying"],
+      ["lumalangoy","swimming"],["tumatalon","jumping"],["umuupo","sitting down"],["tumatayo","standing up"],
+      ["umaalis","leaving"],["dumarating","arriving"],["bumabalik","returning"],["gumigising","waking up"],
+      ["sumasagot","answering"],["tumutulong","helping"],["kumukuha","getting / taking"],["sumasayaw","dancing"]
+    ]
+  },
+  "UM Verbs: Future (Will…)": {
+    emoji: "⏭",
+    words: [
+      ["kakain","will eat"],["iinom","will drink"],["bibili","will buy"],["pupunta","will go"],
+      ["tatakbo","will run"],["kakanta","will sing"],["tatawa","will laugh"],["iiyak","will cry"],
+      ["lalangoy","will swim"],["tatalon","will jump"],["uupo","will sit down"],["tatayo","will stand up"],
+      ["aalis","will leave"],["darating","will arrive"],["babalik","will return"],["gigising","will wake up"],
+      ["sasagot","will answer"],["tutulong","will help"],["kukuha","will get / take"],["sasayaw","will dance"]
+    ]
+  },
+  "MAG Verbs: Past (Completed)": {
+    emoji: "⏮",
+    words: [
+      ["nagluto","cooked"],["naglaro","played"],["naglakad","walked"],["nag-aral","studied"],
+      ["nagturo","taught"],["naglinis","cleaned"],["naghugas","washed"],["naglaba","did laundry"],
+      ["nagbayad","paid"],["nagbigay","gave"],["naghintay","waited"],["nagtanong","asked"],
+      ["nagsalita","spoke"],["nagsulat","wrote"],["nagbasa","read (past)"],["nagmaneho","drove"],
+      ["nagtrabaho","worked"],["nagpahinga","rested"],["nag-isip","thought"]
+    ]
+  },
+  "MAG Verbs: Present (Ongoing)": {
+    emoji: "▶️",
+    words: [
+      ["nagluluto","cooking"],["naglalaro","playing"],["naglalakad","walking"],["nag-aaral","studying"],
+      ["nagtuturo","teaching"],["naglilinis","cleaning"],["naghuhugas","washing"],["naglalaba","doing laundry"],
+      ["nagbabayad","paying"],["nagbibigay","giving"],["naghihintay","waiting"],["nagtatanong","asking"],
+      ["nagsasalita","speaking"],["nagsusulat","writing"],["nagbabasa","reading"],["nagmamaneho","driving"],
+      ["nagpapahinga","resting"],["nag-iisip","thinking"]
+    ]
+  },
+  "MAG Verbs: Future (Will…)": {
+    emoji: "⏭",
+    words: [
+      ["magluluto","will cook"],["maglalaro","will play"],["maglalakad","will walk"],["mag-aaral","will study"],
+      ["magtuturo","will teach"],["maglilinis","will clean"],["maghuhugas","will wash"],["maglalaba","will do laundry"],
+      ["magbabayad","will pay"],["magbibigay","will give"],["maghihintay","will wait"],["magtatanong","will ask"],
+      ["magsasalita","will speak"],["magsusulat","will write"],["magbabasa","will read"],["magmamaneho","will drive"],
+      ["magtatrabaho","will work"],["magpapahinga","will rest"],["mag-iisip","will think"]
+    ]
+  },
+  "MA Verbs: All Aspects": {
+    emoji: "🔄",
+    words: [
+      ["natulog","slept"],["natutulog","sleeping"],["matutulog","will sleep"],
+      ["naligo","bathed"],["naliligo","bathing"],["maliligo","will bathe"],
+      ["nakita","saw"],["nakikita","seeing / can see"],["makikita","will see"],
+      ["narinig","heard"],["naririnig","hearing / can hear"],["maririnig","will hear"],
+      ["naalala","remembered"],["naaalala","remembering"],["maaalala","will remember"],
+      ["nakalimutan","forgot"],["nakakalimutan","forgetting"],["makakalimutan","will forget"],
+      ["natakot","got scared"],["natatakot","scared (ongoing)"],["matatakot","will be scared"],
+      ["nagalit","got angry"],["nagagalit","getting angry"],["magagalit","will get angry"]
+    ]
+  },
+  "MANG Verbs: All Aspects": {
+    emoji: "🔄",
+    words: [
+      ["namili","shopped"],["namimili","shopping"],["mamimili","will shop"],
+      ["nanood","watched"],["nanonood","watching"],["manonood","will watch"],
+      ["nangarap","dreamed"],["nangangarap","dreaming"],["mangangarap","will dream"],
+      ["nanalo","won"],["nananalo","winning"],["mananalo","will win"]
+    ]
+  },
+  "Object Focus (-IN): Do It": {
+    emoji: "🎯",
+    words: [
+      ["kainin","eat (it)"],["inumin","drink (it)"],["lutuin","cook (it)"],["bilhin","buy (it)"],
+      ["hugasan","wash (it)"],["linisin","clean (it)"],["basahin","read (it)"],["isulat","write (it down)"],
+      ["gawin","do (it)"],["tingnan","look at (it)"],["buksan","open (it)"],["isara","close (it)"],
+      ["kunin","get (it)"],["ibigay","give (it)"],["hanapin","find (it)"]
+    ]
+  },
+  "-IN Verbs: All Aspects": {
+    emoji: "🎯",
+    words: [
+      ["kinain","ate (it)"],["kinakain","eating (it)"],["kakainin","will eat (it)"],
+      ["ininom","drank (it)"],["iniinom","drinking (it)"],["iinumin","will drink (it)"],
+      ["niluto","cooked (it)"],["niluluto","cooking (it)"],["lulutuin","will cook (it)"],
+      ["binili","bought (it)"],["binibili","buying (it)"],["bibilhin","will buy (it)"],
+      ["ginawa","did (it)"],["ginagawa","doing (it)"],["gagawin","will do (it)"],
+      ["kinuha","took (it)"],["kinukuha","taking (it)"],["kukunin","will take (it)"],
+      ["hinanap","looked for (it)"],["hinahanap","looking for (it)"],["hahanapin","will look for (it)"],
+      ["binasa","read (it, past)"],["binabasa","reading (it)"],["babasahin","will read (it)"]
+    ]
+  },
+  "-AN Verbs: All Aspects": {
+    emoji: "🚪",
+    words: [
+      ["binuksan","opened (it)"],["binubuksan","opening (it)"],["bubuksan","will open (it)"],
+      ["hinugasan","washed (it)"],["hinuhugasan","washing (it)"],["huhugasan","will wash (it)"],
+      ["binayaran","paid (for it)"],["binabayaran","paying (for it)"],["babayaran","will pay (for it)"],
+      ["tinulungan","helped (someone)"],["tinutulungan","helping (someone)"],["tutulungan","will help (someone)"],
+      ["binigyan","gave (someone something)"],["binibigyan","giving (someone something)"],["bibigyan","will give (someone something)"],
+      ["sinarhan","closed (it)"],["sinasarhan","closing (it)"],["sasarhan","will close (it)"]
+    ]
+  },
+  "I- Verbs: All Aspects": {
+    emoji: "📤",
+    words: [
+      ["ibinigay","gave (it away)"],["ibinibigay","giving (it away)"],["ibibigay","will give (it away)"],
+      ["inilagay","put (it somewhere)"],["inilalagay","putting (it somewhere)"],["ilalagay","will put (it somewhere)"],
+      ["itinapon","threw (it) away"],["itinatapon","throwing (it) away"],["itatapon","will throw (it) away"],
+      ["ibinalik","returned (it)"],["ibinabalik","returning (it)"],["ibabalik","will return (it)"],
+      ["isinulat","wrote (it) down"],["isinusulat","writing (it) down"],["isusulat","will write (it) down"]
+    ]
+  },
+  "Ability (NAKA-/MAKA-)": {
+    emoji: "💪",
+    words: [
+      ["nakakain","was able to eat"],["nakainom","was able to drink"],["nakatulog","managed to sleep"],
+      ["nakapunta","was able to go"],["nakabili","was able to buy"],["nakauwi","made it home"],
+      ["nakapasok","made it in (work/school)"],["nakatapos","managed to finish"],
+      ["makakakain","will be able to eat"],["makakapunta","will be able to go"],
+      ["makakatulog","will be able to sleep"],["makakabili","will be able to buy"]
+    ]
+  },
+  "Just Happened (KAKA- lang)": {
+    emoji: "🕐",
+    words: [
+      ["kakakain lang","just ate"],["kakauwi lang","just got home"],["kakagising lang","just woke up"],
+      ["kakadating lang","just arrived"],["kakaalis lang","just left"],["kakatapos lang","just finished"],
+      ["kakaligo lang","just bathed"],["kakabili lang","just bought (it)"]
+    ]
+  },
+  "Commands & Requests": {
+    emoji: "📣",
+    words: [
+      ["kumain ka","eat!"],["uminom ka","drink!"],["matulog ka na","go to sleep now"],
+      ["umupo ka","sit down"],["tumayo ka","stand up"],["halika","come here"],
+      ["bilisan mo","hurry up"],["dahan-dahan","slowly / gently"],["tigil","stop"],
+      ["sandali","hold on a moment"],["kain na","come eat / let's eat"],["tara","let's go (casual)"]
+    ]
+  }
+};
+
+</script>
+<script>
+/* inlined: practicejudge.js */
+// "Makes Sense?" deck — listen to a Tagalog sentence, decide if it is BOTH
+// grammatically correct AND meaningful. Each item is:
+//   [ sentence, isGood(true/false), explanation ]
+// A "false" item is either grammatically broken OR grammatical-but-nonsense;
+// the explanation says which, so wrong answers still teach.
+//
+// Graduated by level (child-simple -> complex). Built carefully but NOT by a
+// native speaker — worth a native spot-check, especially the `false` items.
+
+const JUDGE_CATEGORIES = {
+  "Level 1 — Tiny Sentences": {
+    emoji: "🐣",
+    words: [
+      ["Kumakain ang aso.", true, "Correct: 'The dog is eating.'"],
+      ["Natutulog ang bata.", true, "Correct: 'The child is sleeping.'"],
+      ["Maganda ang bulaklak.", true, "Correct: 'The flower is beautiful.'"],
+      ["Malaki ang bahay.", true, "Correct: 'The house is big.'"],
+      ["Umiinom ako ng tubig.", true, "Correct: 'I am drinking water.'"],
+      ["Mainit ang kape.", true, "Correct: 'The coffee is hot.'"],
+      ["Tumatakbo ang bata.", true, "Correct: 'The child is running.'"],
+      ["Masarap ang pagkain.", true, "Correct: 'The food is delicious.'"],
+      ["Umiinom ng tubig ang bato.", false, "Nonsense: a rock (bato) can't drink water — grammar is fine, meaning isn't."],
+      ["Kumakain ang bahay.", false, "Nonsense: a house (bahay) doesn't eat."],
+      ["Natutulog ang kape.", false, "Nonsense: coffee doesn't sleep."],
+      ["Ang aso kumakain.", false, "Broken: missing linker — say 'Kumakain ang aso' or 'Ang aso ay kumakain.'"],
+      ["Maganda bulaklak ang.", false, "Broken word order: should be 'Maganda ang bulaklak.'"],
+      ["Tumatakbo ang tubig.", false, "Odd/nonsense here: water doesn't 'run' like a person — use a different verb."],
+      ["Malaki ang masaya.", false, "Doesn't make sense: 'masaya' (happy) isn't a thing that can be 'big.'"],
+      ["Ako kumakain ng kanin.", false, "Broken: needs 'Kumakain ako ng kanin' — pronoun goes after the verb."]
+    ]
+  },
+  "Level 2 — Everyday": {
+    emoji: "🧒",
+    words: [
+      ["Pumupunta ako sa palengke.", true, "Correct: 'I am going to the market.'"],
+      ["Nagluluto si Nanay ng hapunan.", true, "Correct: 'Mom is cooking dinner.'"],
+      ["Maglalaro ang mga bata sa parke.", true, "Correct: 'The children will play in the park.'"],
+      ["Mabait ang guro namin.", true, "Correct: 'Our teacher is kind.'"],
+      ["Bumili siya ng tinapay kahapon.", true, "Correct: 'He/she bought bread yesterday.'"],
+      ["Malamig ang panahon ngayon.", true, "Correct: 'The weather is cold today.'"],
+      ["Natutulog ang pusa sa kama.", true, "Correct: 'The cat is sleeping on the bed.'"],
+      ["Gusto kong matuto ng Tagalog.", true, "Correct: 'I want to learn Tagalog.'"],
+      ["Nagluluto ng hapunan ang mesa.", false, "Nonsense: a table (mesa) doesn't cook."],
+      ["Bumili ng tinapay ang tubig.", false, "Nonsense: water doesn't buy bread."],
+      ["Pumupunta sa palengke ang bahay.", false, "Nonsense: a house doesn't go to the market."],
+      ["Ako pumupunta sa palengke.", false, "Broken: 'Pumupunta ako sa palengke' — pronoun after the verb."],
+      ["Mabait namin ang guro.", false, "Broken word order: 'Mabait ang guro namin.'"],
+      ["Gusto matuto ako ng Tagalog.", false, "Broken: should be 'Gusto kong matuto ng Tagalog.'"],
+      ["Maglalaro sa parke ang malamig.", false, "Nonsense: 'malamig' (cold) isn't someone who can play."],
+      ["Bumili kahapon ng tinapay bukas siya.", false, "Broken/contradictory: mixes 'kahapon' (yesterday) and 'bukas' (tomorrow)."]
+    ]
+  },
+  "Level 3 — Real Talk": {
+    emoji: "🗣️",
+    words: [
+      ["Hindi ako makakapunta bukas dahil may trabaho ako.", true, "Correct: 'I can't go tomorrow because I have work.'"],
+      ["Kung uulan, hindi tayo lalabas.", true, "Correct: 'If it rains, we won't go out.'"],
+      ["Matagal na akong nag-aaral ng wikang Tagalog.", true, "Correct: 'I've been studying Tagalog for a long time.'"],
+      ["Mas masarap ang luto ni Lola kaysa sa akin.", true, "Correct: 'Grandma's cooking is tastier than mine.'"],
+      ["Pagkatapos kumain, naghugas siya ng pinggan.", true, "Correct: 'After eating, he/she washed the dishes.'"],
+      ["Gusto kong bumili ng bagong sapatos sa mall.", true, "Correct: 'I want to buy new shoes at the mall.'"],
+      ["Tinutulungan ko ang kapatid ko sa takdang-aralin.", true, "Correct: 'I help my sibling with homework.'"],
+      ["Naglalakad kami papuntang simbahan tuwing Linggo.", true, "Correct: 'We walk to church every Sunday.'"],
+      ["Hindi ako makakapunta bukas dahil masaya ang bato.", false, "Nonsense ending: 'because the rock is happy' isn't a real reason."],
+      ["Kung uulan, lalangoy ang takdang-aralin.", false, "Nonsense: homework can't swim."],
+      ["Mas masarap ang Lola kaysa luto.", false, "Wrong meaning: this says Grandma tastes better than the cooking — markers misplaced."],
+      ["Pagkatapos kumain naghugas pinggan siya ng.", false, "Broken word order at the end: '…naghugas siya ng pinggan.'"],
+      ["Matagal na nag-aaral ako Tagalog ng wikang.", false, "Broken word order: '…nag-aaral ng wikang Tagalog.'"],
+      ["Tinutulungan ako ng takdang-aralin sa kapatid ko.", false, "Reversed meaning: this says the homework helps me — roles flipped."],
+      ["Naglalakad ang simbahan papuntang kami.", false, "Nonsense + broken: the church isn't walking toward us."],
+      ["Gusto kong bumili ng bagong mall sa sapatos.", false, "Swapped nouns: you'd buy shoes at a mall, not a 'mall at the shoes.'"]
+    ]
+  },
+  "Level 4 — Trickier": {
+    emoji: "🎓",
+    words: [
+      ["Sinabi niya na darating siya bago mag-alas-otso.", true, "Correct: 'He/she said they'd arrive before eight.'"],
+      ["Kahit pagod ako, tatapusin ko pa rin ang trabaho.", true, "Correct: 'Even though I'm tired, I'll still finish the work.'"],
+      ["Mukhang uulan, kaya magdala ka ng payong.", true, "Correct: 'It looks like rain, so bring an umbrella.'"],
+      ["Habang nagluluto ako, naglilinis siya ng bahay.", true, "Correct: 'While I cook, he/she cleans the house.'"],
+      ["Hindi ko alam kung saan niya inilagay ang susi.", true, "Correct: 'I don't know where he/she put the key.'"],
+      ["Mas gusto kong magbasa kaysa manood ng telebisyon.", true, "Correct: 'I prefer reading to watching TV.'"],
+      ["Dapat tayong mag-ingat dahil madulas ang daan.", true, "Correct: 'We should be careful because the road is slippery.'"],
+      ["Kung nag-aral ka, pumasa ka sana sa pagsusulit.", true, "Correct: 'If you had studied, you would've passed the exam.'"],
+      ["Sinabi ng susi na darating siya bago mag-alas-otso.", false, "Nonsense: a key (susi) can't say anything."],
+      ["Kahit pagod ang payong, tatapusin nito ang trabaho.", false, "Nonsense: an umbrella isn't tired and can't finish work."],
+      ["Habang naglilinis ng bahay, nagluluto ang daan.", false, "Nonsense: a road (daan) doesn't cook."],
+      ["Hindi ko alam kung saan inilagay ang susi niya ang.", false, "Broken: dangling 'ang' at the end — word order falls apart."],
+      ["Mas gusto manood kaysa magbasa kong ako ng.", false, "Broken word order: '…gusto kong manood kaysa magbasa.'"],
+      ["Dapat madulas tayong mag-ingat ang daan dahil.", false, "Broken: clauses scrambled — 'Dapat tayong mag-ingat dahil madulas ang daan.'"],
+      ["Mukhang payong, kaya magdala ka ng uulan.", false, "Swapped: you bring an umbrella because of rain, not 'bring rain.'"],
+      ["Sinabi niya na darating ang pagsusulit bago mag-aral siya.", false, "Garbled meaning: the exam doesn't 'arrive before he studies' in any sensible way."]
+    ]
+  }
+};
+
+</script>
+<script>
+/* inlined: phrases.js */
+// Context phrases shown (and spoken) after a correct answer — words stick better in context.
+// Add more anytime: tagalogWord: ["Tagalog phrase.", "English meaning."]
+// Only words listed here show a phrase; everything else just skips it.
+
+const PHRASES = {
+  "aso": ["Malaki ang aso.", "The dog is big."],
+  "pusa": ["Natutulog ang pusa.", "The cat is sleeping."],
+  "bahay": ["Maganda ang bahay.", "The house is beautiful."],
+  "tubig": ["Malamig ang tubig.", "The water is cold."],
+  "pagkain": ["Masarap ang pagkain.", "The food is delicious."],
+  "araw": ["Mainit ang araw.", "The sun is hot."],
+  "gabi": ["Tahimik ang gabi.", "The night is quiet."],
+  "umaga": ["Magandang umaga po.", "Good morning (polite)."],
+  "salamat": ["Salamat sa iyo.", "Thank you (to you)."],
+  "kape": ["Mainit ang kape.", "The coffee is hot."],
+  "kanin": ["Kumain ako ng kanin.", "I ate rice."],
+  "tinapay": ["Bumili ako ng tinapay.", "I bought bread."],
+  "itlog": ["Nagluto ako ng itlog.", "I cooked an egg."],
+  "isda": ["Sariwa ang isda.", "The fish is fresh."],
+  "manok": ["Masarap ang manok.", "The chicken is delicious."],
+  "gatas": ["Uminom siya ng gatas.", "He/she drank milk."],
+  "pera": ["Wala akong pera.", "I have no money."],
+  "libro": ["Nagbasa ako ng libro.", "I read a book."],
+  "kotse": ["Bago ang kotse.", "The car is new."],
+  "mesa": ["Nasa mesa ang libro.", "The book is on the table."],
+  "pinto": ["Buksan mo ang pinto.", "Open the door."],
+  "bintana": ["Isara mo ang bintana.", "Close the window."],
+  "lalaki": ["Matangkad ang lalaki.", "The man is tall."],
+  "babae": ["Mabait ang babae.", "The woman is kind."],
+  "bata": ["Naglalaro ang bata.", "The child is playing."],
+  "pamilya": ["Mahal ko ang pamilya ko.", "I love my family."],
+  "kaibigan": ["Kaibigan ko siya.", "He/she is my friend."],
+  "guro": ["Magaling ang guro.", "The teacher is skilled."],
+  "nanay": ["Nagluluto si Nanay.", "Mom is cooking."],
+  "tatay": ["Nagtatrabaho si Tatay.", "Dad is working."],
+  "ate": ["Nasaan si Ate?", "Where is older sister?"],
+  "kuya": ["Tumulong si Kuya.", "Older brother helped."],
+  "anak": ["Mahal ko ang anak ko.", "I love my child."],
+  "kamay": ["Maghugas ng kamay.", "Wash your hands."],
+  "mata": ["Asul ang mata niya.", "His/her eyes are blue."],
+  "ulo": ["Masakit ang ulo ko.", "My head hurts."],
+  "puso": ["Malakas ang puso mo.", "Your heart is strong."],
+  "tiyan": ["Masakit ang tiyan ko.", "My stomach hurts."],
+  "ulan": ["Malakas ang ulan.", "The rain is heavy."],
+  "hangin": ["Malamig ang hangin.", "The wind is cold."],
+  "dagat": ["Malinis ang dagat.", "The sea is clean."],
+  "bundok": ["Mataas ang bundok.", "The mountain is high."],
+  "puno": ["Matanda ang puno.", "The tree is old."],
+  "bulaklak": ["Maganda ang bulaklak.", "The flower is beautiful."],
+  "langit": ["Asul ang langit.", "The sky is blue."],
+  "bituin": ["Maraming bituin ngayon.", "There are many stars tonight."],
+  "maganda": ["Maganda ang lugar.", "The place is beautiful."],
+  "malaki": ["Malaki ang bahay nila.", "Their house is big."],
+  "maliit": ["Maliit ang kwarto.", "The room is small."],
+  "mainit": ["Mainit ngayon.", "It's hot today."],
+  "malamig": ["Malamig kagabi.", "It was cold last night."],
+  "masaya": ["Masaya ako ngayon.", "I am happy today."],
+  "malungkot": ["Malungkot siya kahapon.", "He/she was sad yesterday."],
+  "mabilis": ["Mabilis ang kotse.", "The car is fast."],
+  "bago": ["Bago ang sapatos ko.", "My shoes are new."],
+  "gusto": ["Gusto ko ito.", "I like this."],
+  "ayaw": ["Ayaw ko iyan.", "I don't want that."],
+  "alam": ["Alam ko na.", "I know now / I already know."],
+  "kumain": ["Kumain na ako.", "I already ate."],
+  "uminom": ["Uminom ka ng tubig.", "Drink water."],
+  "matulog": ["Matulog ka na.", "Go to sleep now."],
+  "trabaho": ["Marami akong trabaho.", "I have a lot of work."],
+  "nagtatrabaho": ["Nagtatrabaho ako ngayon.", "I am working now."],
+  "bumili": ["Bumili kami ng prutas.", "We bought fruit."],
+  "magluto": ["Magluto tayo ng hapunan.", "Let's cook dinner."],
+  "maglakad": ["Maglakad tayo sa parke.", "Let's walk in the park."],
+  "umuwi": ["Umuwi na ako.", "I went home already."],
+  "pumunta": ["Pumunta kami sa palengke.", "We went to the market."],
+  "ngayon": ["Ngayon na!", "Right now!"],
+  "bukas": ["Kita tayo bukas.", "See you tomorrow."],
+  "kahapon": ["Umulan kahapon.", "It rained yesterday."],
+  "dito": ["Halika dito.", "Come here."],
+  "doon": ["Nandoon ang tindahan.", "The store is over there."],
+  "malayo": ["Malayo ang paaralan.", "The school is far."],
+  "malapit": ["Malapit lang ito.", "It's just nearby."],
+  "saan": ["Saan ka pupunta?", "Where are you going?"],
+  "ano": ["Ano ito?", "What is this?"],
+  "sino": ["Sino siya?", "Who is he/she?"],
+  "bakit": ["Bakit ka malungkot?", "Why are you sad?"],
+  "magkano": ["Magkano ito?", "How much is this?"],
+  "ako": ["Ako si Simmigon.", "I am Simmigon."],
+  "ikaw": ["Ikaw ba iyan?", "Is that you?"],
+  "siya": ["Mabait siya.", "He/she is kind."],
+  "ospital": ["Nasa ospital siya.", "He/she is at the hospital."],
+  "palengke": ["Pupunta ako sa palengke.", "I will go to the market."],
+  "paaralan": ["Nasa paaralan ang bata.", "The child is at school."],
+  "simbahan": ["Malapit ang simbahan.", "The church is near."],
+  "mahal": ["Mahal ang bigas ngayon.", "Rice is expensive now."],
+  "mura": ["Mura ang gulay dito.", "Vegetables are cheap here."],
+  "gutom": ["Gutom na ako.", "I'm hungry now."],
+  "uhaw": ["Uhaw ako.", "I'm thirsty."],
+  "masarap": ["Masarap ang adobo.", "The adobo is delicious."],
+  "oras": ["Anong oras na?", "What time is it?"],
+  "lagi": ["Lagi akong nag-aaral.", "I always study."],
+  "minsan": ["Minsan lang ako kumakain ng karne.", "I only eat meat sometimes."]
+};
+
+</script>
+<script>
+/* inlined: practice-app.js */
+// Kaipher Practice — app logic
+// Word data lives in practicetag.js (WORD_CATEGORIES); context phrases in phrases.js (PHRASES).
+
+// ---------- data ----------
+const LS = { custom: "tq_custom", prog: "tq_progress", best: "tq_best" };
+const DAILY_KEY = "tq_daily", STREAK_KEY = "tq_streak", NEWCAP_KEY = "tq_newCap";
+const REV_KEY = "tq_reverse", PHRASE_KEY = "tq_phrases", DECK_KEY = "tq_deck";
+let customWords = JSON.parse(localStorage.getItem(LS.custom) || "[]");
+const PHRASE_DATA = (typeof PHRASES !== "undefined") ? PHRASES : {};
+
+// ---------- deck: words vs sentences ----------
+// Two parallel decks share one engine. Words live in WORD_CATEGORIES (practicetag.js);
+// everyday sentences in SENTENCE_CATEGORIES (practicesentences.js). Progress keys never collide
+// because the Tagalog text differs. Custom "My Words" entries belong to the words deck only.
+const SENTENCE_CATS = (typeof SENTENCE_CATEGORIES !== "undefined") ? SENTENCE_CATEGORIES : {};
+const CONJ_CATS = (typeof CONJUGATION_CATEGORIES !== "undefined") ? CONJUGATION_CATEGORIES : {};
+const JUDGE_CATS = (typeof JUDGE_CATEGORIES !== "undefined") ? JUDGE_CATEGORIES : {};
+const DECKS = { words: () => WORD_CATEGORIES, sentences: () => SENTENCE_CATS, conj: () => CONJ_CATS, judge: () => JUDGE_CATS };
+let deckMode = localStorage.getItem(DECK_KEY) || "words"; // "words" | "sentences" | "conj" | "judge"
+if (!DECKS[deckMode]) deckMode = "words";
+function inSentences() { return deckMode === "sentences"; }
+function inJudge() { return deckMode === "judge"; }
+function deckUnit() { return inJudge() ? "sentences" : inSentences() ? "phrases" : "words"; }
+let CATS = DECKS[deckMode]();
+function allWords() {
+  const out = [];
+  Object.values(CATS).forEach(c => out.push(...c.words));
+  if (deckMode === "words") out.push(...customWords);
+  return out;
+}
+// Map each word -> its group (category) so multiple-choice decoys can be drawn
+// from RELATED words even when practicing the one big "All Words" list.
+let GROUP_OF = {};
+function rebuildGroupIndex() {
+  GROUP_OF = {};
+  Object.entries(CATS).forEach(([name, c]) => c.words.forEach(([tl]) => { GROUP_OF[tl] = name; }));
+}
+rebuildGroupIndex();
+function setDeck(mode) {
+  if (mode === deckMode || !DECKS[mode]) return;
+  deckMode = mode;
+  localStorage.setItem(DECK_KEY, mode);
+  CATS = DECKS[mode]();
+  rebuildGroupIndex();
+  updateDeckToggle();
+  renderHome();
+}
+function updateDeckToggle() {
+  const ids = { words: "deckWords", sentences: "deckSentences", conj: "deckConj", judge: "deckJudge" };
+  Object.entries(ids).forEach(([mode, id]) => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle("active", deckMode === mode);
+  });
+}
+
+// ---------- state ----------
+let progress = JSON.parse(localStorage.getItem(LS.prog) || "{}"); // {key: {ok, miss, box, due}}
+let score = 0, streak = 0, best = +(localStorage.getItem(LS.best) || 0);
+let words = [], current = null, answered = false, currentCat = null;
+let sessionMode = "normal"; // "normal" | "reviewDue" | "trouble"
+let sessionGoal = 0, sessionDone = 0, normalDoneShown = false;
+
+// ---------- settings ----------
+function reverseOn() { return localStorage.getItem(REV_KEY) !== "off"; }   // default on
+function phrasesOn() { return localStorage.getItem(PHRASE_KEY) !== "off"; } // default on
+// "Words in play": how many un-mastered words may be active at once. A new word
+// is introduced only when fewer than this are still being learned (chunked SRS).
+function newCap() { return +(localStorage.getItem(NEWCAP_KEY) || 3); }
+const MASTER_AT = 3; // correct answers needed before a word counts as mastered
+
+// ---------- daily stats + streak ----------
+function todayStr() { return new Date().toLocaleDateString("en-CA"); }
+function getDaily() {
+  let d = JSON.parse(localStorage.getItem(DAILY_KEY) || "null");
+  if (!d || d.date !== todayStr()) d = { date: todayStr(), answeredN: 0, newSeen: 0, correct: 0, wrong: 0, trouble: {} };
+  return d;
+}
+function saveDaily(d) { localStorage.setItem(DAILY_KEY, JSON.stringify(d)); }
+function getStreak() { return JSON.parse(localStorage.getItem(STREAK_KEY) || "null") || { count: 0, last: null }; }
+function bumpStreak() {
+  const t = todayStr();
+  const s = getStreak();
+  if (s.last === t) return s;
+  const y = new Date(Date.now() - 864e5).toLocaleDateString("en-CA");
+  s.count = (s.last === y) ? s.count + 1 : 1;
+  s.last = t;
+  localStorage.setItem(STREAK_KEY, JSON.stringify(s));
+  return s;
+}
+
+// ---------- audio: reward sounds ----------
+let actx;
+function ctx() { if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); return actx; }
+function chimeNote(freq, dt, dur, vol) {
+  const c = ctx(), t = c.currentTime + dt;
+  [[1, vol], [4, vol * 0.15]].forEach(([mult, v]) => {
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = "sine"; o.frequency.value = freq * mult;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(v, t + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(c.destination);
+    o.start(t); o.stop(t + dur + 0.05);
+  });
+}
+function bellStrike(freq, dt, dur, vol) {
+  const c = ctx(), t = c.currentTime + dt;
+  [[1, vol], [2.0, vol * 0.35], [2.92, vol * 0.2], [4.2, vol * 0.08]].forEach(([mult, v]) => {
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = "sine"; o.frequency.value = freq * mult;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(v, t + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(c.destination);
+    o.start(t); o.stop(t + dur + 0.05);
+  });
+}
+function wuf(dt) {
+  const c = ctx(), t = c.currentTime + dt;
+  const o = c.createOscillator(), g = c.createGain(), f = c.createBiquadFilter();
+  o.type = "triangle";
+  o.frequency.setValueAtTime(220, t);
+  o.frequency.exponentialRampToValueAtTime(110, t + 0.12);
+  f.type = "lowpass"; f.frequency.value = 600;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(0.3, t + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.14);
+  o.connect(f).connect(g).connect(c.destination);
+  o.start(t); o.stop(t + 0.2);
+}
+function buzz() {
+  const c = ctx(), t = c.currentTime;
+  const o = c.createOscillator(), g = c.createGain();
+  o.type = "sawtooth"; o.frequency.setValueAtTime(140, t);
+  g.gain.setValueAtTime(0.12, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + .25);
+  o.connect(g).connect(c.destination); o.start(t); o.stop(t + .3);
+}
+
+// reverb: generated impulse response fed through a ConvolverNode (built once, reused)
+function getReverb() {
+  const c = ctx();
+  if (!getReverb.node) {
+    const len = Math.floor(c.sampleRate * 2.5);
+    const buf = c.createBuffer(2, len, c.sampleRate);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = buf.getChannelData(ch);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.5);
+    }
+    const conv = c.createConvolver(); conv.buffer = buf;
+    const wet = c.createGain(); wet.gain.value = 0.6;
+    conv.connect(wet); wet.connect(c.destination);
+    getReverb.node = conv;
+  }
+  return getReverb.node;
+}
+function singleBellReverb() {
+  // Properly tuned MAJOR-THIRD bell, prime = A5 (880 Hz).
+  // Campanology ratios hum:prime:tierce:quint:nominal = 0.5 : 1 : 1.25 : 1.5 : 2
+  // (tierce raised from the traditional 1.2 minor third to 1.25 major third = brighter/happier).
+  // All partials ≤ 1760 Hz — below the 2–4 kHz sharpness/annoyance band (Zwicker/Fastl).
+  // Decay mirrors a physical bell: low partials ring longest, high partials die first.
+  const c = ctx(), t = c.currentTime, conv = getReverb();
+  const PRIME = 880;
+  // [ratio, amplitude, decay seconds]
+  [
+    [0.5,  0.10, 2.2],  // hum
+    [1.0,  0.22, 1.6],  // prime
+    [1.25, 0.12, 1.3],  // tierce (major third)
+    [1.5,  0.07, 1.0],  // quint
+    [2.0,  0.10, 0.7]   // nominal (strike brightness)
+  ].forEach(([mult, v, dur]) => {
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = "sine"; o.frequency.value = PRIME * mult;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(v, t + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g);
+    g.connect(c.destination); // dry
+    g.connect(conv);          // wet
+    o.start(t); o.stop(t + dur + 0.1);
+  });
+}
+
+function dingSound() {
+  // Service-desk "ding!": small metal dome — high pitch, fast strike, quick decay.
+  // The shimmer comes from paired oscillators a few Hz apart (slow beating),
+  // plus inharmonic upper partials typical of struck metal.
+  const c = ctx(), t = c.currentTime, conv = getReverb();
+  const F = 1175; // D6 — diner counter bell: bigger dome, lower pitch, longer ring
+  // [freq, amplitude, decay]
+  [
+    [F,        0.22, 1.4],  // fundamental, rings out
+    [F + 6,    0.18, 1.4],  // detuned pair -> ~6 Hz wobble (the "driiing" shimmer)
+    [F * 2.15, 0.08, 0.7],  // inharmonic body partial
+    [F * 3.4,  0.04, 0.35]  // strike sparkle, dies fast
+  ].forEach(([freq, v, dur]) => {
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = "sine"; o.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(v, t + 0.004); // very fast strike
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g);
+    g.connect(c.destination);
+    g.connect(conv);
+    o.start(t); o.stop(t + dur + 0.1);
+  });
+}
+
+// ---------- win sound settings (dropdown + custom uploads) ----------
+const SOUND_KEY = "tq_winSound";
+const BUILTIN_SOUNDS = {};
+const BUILTIN_GROUPS = {};
+// ---------- generated sound catalog: pings, dings, doorbells, rings, bells, chimes… ----------
+const NOTES = { G4: 392.0, A4: 440.0, C5: 523.25, D5: 587.33, E5: 659.25, F5: 698.46, G5: 783.99,
+  A5: 880.0, C6: 1046.5, D6: 1174.66, E6: 1318.5, G6: 1567.98, A6: 1760.0, C7: 2093.0, E7: 2637.0 };
+function _osc(f, dt, dur, vol, wet) {
+  const c = ctx(), t = c.currentTime + dt, conv = getReverb();
+  const o = c.createOscillator(), g = c.createGain();
+  o.type = "sine"; o.frequency.value = f;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(vol, t + 0.008);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(c.destination);
+  if (wet) g.connect(conv);
+  o.start(t); o.stop(t + dur + 0.1);
+}
+const _ping = f => () => { _osc(f, 0, 0.35, 0.2, true); _osc(f * 3, 0, 0.18, 0.04, true); };
+const _dingv = (f, beat, dur) => () => {
+  _osc(f, 0, dur, 0.2, true); _osc(f + beat, 0, dur, 0.16, true);
+  _osc(f * 2.15, 0, dur * 0.5, 0.07, true); _osc(f * 3.4, 0, dur * 0.25, 0.03, true);
+};
+const _doorbell = (f2, three) => () => { // classic ding-dong: major third above key, then key
+  const f1 = f2 * 1.25;
+  const note = (f, dt, v) => { _osc(f, dt, 0.9, v, true); _osc(f * 2, dt, 0.5, v * 0.2, true); };
+  note(f1, 0, 0.2);
+  if (three) { note(f1, 0.35, 0.16); note(f2, 0.7, 0.2); }
+  else note(f2, 0.45, 0.2);
+};
+const _ring = (f, am, dur, bursts) => () => { // telephone-style trill (amplitude-modulated)
+  const c = ctx(), conv = getReverb();
+  for (let b = 0; b < bursts; b++) {
+    const t0 = c.currentTime + b * (dur + 0.22);
+    const o = c.createOscillator(), g = c.createGain(), lfo = c.createOscillator(), lg = c.createGain(), env = c.createGain();
+    o.type = "sine"; o.frequency.value = f;
+    lfo.type = "square"; lfo.frequency.value = am;
+    lg.gain.value = 0.085; g.gain.value = 0.1;
+    lfo.connect(lg); lg.connect(g.gain);
+    env.gain.setValueAtTime(0.0001, t0);
+    env.gain.linearRampToValueAtTime(1, t0 + 0.02);
+    env.gain.setValueAtTime(1, t0 + dur - 0.05);
+    env.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g); g.connect(env); env.connect(c.destination); env.connect(conv);
+    o.start(t0); o.stop(t0 + dur + 0.05); lfo.start(t0); lfo.stop(t0 + dur + 0.05);
+  }
+};
+const _bellv = (f, minor) => () => {
+  const tierce = minor ? 1.2 : 1.25;
+  [[0.5, 0.10, 2.2], [1, 0.22, 1.6], [tierce, 0.12, 1.3], [1.5, 0.07, 1.0], [2, 0.10, 0.7]]
+    .forEach(([m, v, d]) => _osc(f * m, 0, d, v, true));
+};
+const _chime = (f, iv) => () => { chimeNote(f, 0, 0.45, 0.2); chimeNote(f * iv, 0.14, 0.6, 0.2); };
+const _marimba = f => () => chimeNote(f, 0, 0.3, 0.25);
+const _pop = f => () => {
+  const c = ctx(), t = c.currentTime;
+  const o = c.createOscillator(), g = c.createGain();
+  o.type = "sine";
+  o.frequency.setValueAtTime(f, t);
+  o.frequency.exponentialRampToValueAtTime(f * 2.2, t + 0.07);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(0.25, t + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+  o.connect(g).connect(c.destination); o.start(t); o.stop(t + 0.15);
+};
+const _sparkle = f => () => [1, 1.25, 1.5, 2].forEach((m, i) => chimeNote(f * m, i * 0.07, 0.3, 0.16));
+function addSoundGroup(label, entries) {
+  BUILTIN_GROUPS[label] = entries.map(e => e[0]);
+  entries.forEach(([n, fn]) => BUILTIN_SOUNDS[n] = fn);
+}
+// SINGLE SOUNDS ONLY — every entry is one strike, never a sequence.
+// Chime: soft single strike with a faint high shimmer (like "Chime F5 (single)").
+const _chimeSingle = f => () => { _osc(f, 0, 0.9, 0.24, true); _osc(f * 4, 0, 0.45, 0.04, true); };
+// Ding: one bright, short strike — snappier and higher-decay than a chime.
+const _dingSingle = f => () => { _osc(f, 0, 0.5, 0.24, true); _osc(f * 2.6, 0, 0.18, 0.05, true); };
+const TONE_NOTES = ["G4","A4","C5","D5","E5","F5","G5","A5","C6","D6","E6","G6","A6","C7","E7"];
+// single chimes (keep "Chime F5 (single)" name EXACT so the current selection survives)
+addSoundGroup("Chimes", TONE_NOTES.map(n => ["Chime " + n + " (single)", _chimeSingle(NOTES[n])]));
+// single dings
+addSoundGroup("Dings", TONE_NOTES.map(n => ["Ding " + n + " (single)", _dingSingle(NOTES[n])]));
+
+let winSoundName = localStorage.getItem(SOUND_KEY) || "Chime F5 (single)";
+let customSounds = {}; // name -> Blob
+
+function openSoundDB() {
+  return new Promise((res, rej) => {
+    const req = indexedDB.open("kaipher-practice", 1);
+    req.onupgradeneeded = () => req.result.createObjectStore("sounds", { keyPath: "name" });
+    req.onsuccess = () => res(req.result);
+    req.onerror = () => rej(req.error);
+  });
+}
+async function loadCustomSounds() {
+  try {
+    const db = await openSoundDB();
+    const rows = await new Promise((res, rej) => {
+      const r = db.transaction("sounds").objectStore("sounds").getAll();
+      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+    });
+    customSounds = {};
+    rows.forEach(r => customSounds[r.name] = r.blob);
+  } catch (e) { console.warn("IndexedDB unavailable:", e); }
+  renderSoundSelect();
+}
+async function saveCustomSound(name, blob) {
+  const db = await openSoundDB();
+  await new Promise((res, rej) => {
+    const tx = db.transaction("sounds", "readwrite");
+    tx.objectStore("sounds").put({ name, blob });
+    tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+  });
+  customSounds[name] = blob;
+}
+async function deleteCustomSound(name) {
+  const db = await openSoundDB();
+  await new Promise((res, rej) => {
+    const tx = db.transaction("sounds", "readwrite");
+    tx.objectStore("sounds").delete(name);
+    tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+  });
+  delete customSounds[name];
+}
+function renderSoundSelect() {
+  const sel = document.getElementById("soundSelect");
+  sel.innerHTML = "";
+  const all = [...Object.keys(BUILTIN_SOUNDS), ...Object.keys(customSounds)];
+  if (!all.includes(winSoundName)) winSoundName = "Chime F5 (single)";
+  if (Object.keys(customSounds).length) {
+    const og = document.createElement("optgroup");
+    og.label = "My Sounds";
+    Object.keys(customSounds).forEach(n => {
+      const o = document.createElement("option");
+      o.value = n; o.textContent = n;
+      og.appendChild(o);
+    });
+    sel.appendChild(og);
+  }
+  Object.entries(BUILTIN_GROUPS).forEach(([label, names]) => {
+    const og = document.createElement("optgroup");
+    og.label = label;
+    names.forEach(n => {
+      if (!BUILTIN_SOUNDS[n]) return;
+      const o = document.createElement("option");
+      o.value = n; o.textContent = n;
+      og.appendChild(o);
+    });
+    sel.appendChild(og);
+  });
+  sel.value = winSoundName;
+  document.getElementById("deleteSoundBtn").style.display = BUILTIN_SOUNDS[winSoundName] ? "none" : "inline-block";
+}
+let customAudioEl = null;
+function correctSound() {
+  if (BUILTIN_SOUNDS[winSoundName]) { BUILTIN_SOUNDS[winSoundName](); return; }
+  const fallback = BUILTIN_SOUNDS["Chime F5 (single)"];
+  const blob = customSounds[winSoundName];
+  if (!blob) { fallback(); return; }
+  if (customAudioEl) customAudioEl.pause();
+  customAudioEl = new Audio(URL.createObjectURL(blob));
+  customAudioEl.play().catch(() => fallback());
+}
+
+// ---------- TTS ----------
+// Tagalog — primary: Google Translate TTS. Fallback: installed Filipino voice. Last resort: show text.
+// English — light, young female voice where available, with raised pitch.
+let filVoice = null, enVoice = null;
+let gttsOk = true;
+function pickVoice() {
+  const vs = speechSynthesis.getVoices();
+  filVoice = vs.find(v => /^fil|^tl\b|tl[-_]|tagalog/i.test(v.lang) || /filipino|tagalog/i.test(v.name)) || null;
+  const en = vs.filter(v => /^en[-_]/i.test(v.lang));
+  enVoice =
+    en.find(v => /samantha|ava|allison|susan|zoe|jenny|aria|google us english/i.test(v.name)) ||
+    en.find(v => /female|woman|girl/i.test(v.name)) ||
+    en.find(v => /en[-_]US/i.test(v.lang)) ||
+    en[0] || null;
+  updateVoiceNote();
+}
+function updateVoiceNote() {
+  const note = document.getElementById("voiceNote");
+  let txt = gttsOk ? "Tagalog: Google Translate (online)" :
+    filVoice ? "Tagalog: " + filVoice.name : "⚠️ No Tagalog audio — showing words as text";
+  if (enVoice) txt += " · English: " + enVoice.name;
+  note.textContent = txt;
+}
+speechSynthesis.onvoiceschanged = pickVoice;
+pickVoice();
+
+let currentAudio = null;
+let gttsFails = 0; // consecutive Google-TTS failures; only give up after several in a row
+function speakFallback(word) {
+  if (filVoice) {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(word);
+    u.voice = filVoice; u.lang = filVoice.lang; u.rate = 0.85;
+    speechSynthesis.speak(u);
+  } else {
+    showPrompt(true);
+  }
+}
+function speak(word) {
+  if (gttsOk) {
+    if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+    const url = "https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=tl&q=" + encodeURIComponent(word);
+    const a = new Audio(url);
+    currentAudio = a;
+    const onFail = err => {
+      if (err && err.name === "NotAllowedError") return; // autoplay block, not a real failure
+      // one blip shouldn't kill audio for the whole session: fall back for THIS word,
+      // keep trying Google on the next one, and only latch off after 3 in a row.
+      if (++gttsFails >= 3) { gttsOk = false; updateVoiceNote(); }
+      speakFallback(word);
+    };
+    a.addEventListener("playing", () => { gttsFails = 0; }); // success resets the counter
+    a.play().then(() => { gttsFails = 0; }).catch(onFail);
+    a.onerror = () => onFail({});
+    return;
+  }
+  if (filVoice) {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(word);
+    u.voice = filVoice; u.lang = filVoice.lang; u.rate = 0.85;
+    speechSynthesis.speak(u);
+    return;
+  }
+  showPrompt(true);
+}
+function speakEnglish(text) {
+  const u = new SpeechSynthesisUtterance(text.replace(/\s*\/\s*/g, ", ").replace(/\(.*?\)/g, ""));
+  if (enVoice) u.voice = enVoice;
+  u.lang = "en-US";
+  u.rate = 1.0;
+  u.pitch = 1.3; // lighter / younger
+  speechSynthesis.cancel();
+  speechSynthesis.speak(u);
+}
+
+// ---------- SRS: Leitner boxes (items = forward "tl" and reverse "rev:tl") ----------
+const SRS_INTERVALS = [
+  30 * 1000,                 // box 0: 30 sec (just missed)
+  10 * 60 * 1000,            // box 1: 10 min
+  60 * 60 * 1000,            // box 2: 1 hour
+  24 * 60 * 60 * 1000,       // box 3: 1 day
+  3 * 24 * 60 * 60 * 1000,   // box 4: 3 days
+  7 * 24 * 60 * 60 * 1000    // box 5: 1 week
+];
+function quizItems(wordList) {
+  // judge deck: each item is [sentence, isGood, explanation]; never reversed
+  if (inJudge()) {
+    return wordList.map(([tl, good, expl]) => ({ tl, good, expl, key: tl, rev: false, judge: true }));
+  }
+  const rev = reverseOn();
+  const items = [];
+  wordList.forEach(([tl, en]) => {
+    items.push({ tl, en, key: tl, rev: false });
+    if (rev) items.push({ tl, en, key: "rev:" + tl, rev: true });
+  });
+  return items;
+}
+function isDueKey(key) {
+  const p = progress[key];
+  return p && p.due !== undefined && p.due <= Date.now();
+}
+function dueCount(wordList) { return quizItems(wordList).filter(it => isDueKey(it.key)).length; }
+function srsCorrect(p) {
+  p.box = Math.min((p.box || 0) + 1, 5);
+  p.due = Date.now() + SRS_INTERVALS[p.box];
+}
+function srsWrong(p) {
+  p.box = 0;
+  p.due = Date.now() + SRS_INTERVALS[0];
+}
+function dueItems(wl) { return quizItems(wl).filter(it => isDueKey(it.key)); }
+function troubleWords() {
+  // weak spots: missed at least twice and missed at least as often as gotten right
+  return allWords().filter(([tl]) => { const p = progress[tl]; return p && p.miss >= 2 && p.miss >= (p.ok || 0); });
+}
+function pickItem() {
+  const items = quizItems(words);
+  // review-all-due mode: serve only due items, nothing else
+  if (sessionMode === "reviewDue") {
+    const d = items.filter(it => isDueKey(it.key));
+    return d.length ? d[Math.floor(Math.random() * d.length)] : null;
+  }
+  // 1) due reviews first
+  const due = items.filter(it => isDueKey(it.key));
+  if (due.length) return due[Math.floor(Math.random() * due.length)];
+  // 2) introduce a NEW word only when fewer than N are still being learned.
+  // This is the "3 at a time" chunk: you drill a small active set via spaced
+  // repetition; each time you master one, the next word in the list unlocks.
+  // New words enter in list order, so every word gets its own question in turn.
+  const activeUnmastered = items.filter(it => {
+    const p = progress[it.key];
+    return p && (p.ok || 0) < MASTER_AT;
+  }).length;
+  const unseen = items.filter(it => !progress[it.key]);
+  if (unseen.length && activeUnmastered < newCap()) {
+    return unseen[0];
+  }
+  // 3) practice ahead on seen items (or unseen if literally nothing has been seen)
+  const seen = items.filter(it => progress[it.key]);
+  const pool = seen.length ? seen : items;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+// ---------- typed recall mode (toggleable) ----------
+const MODE_KEY = "tq_answerMode", API_KEY = "tq_apiKey";
+let answerMode = localStorage.getItem(MODE_KEY) || "choice"; // "choice" | "typed"
+function setAnswerMode(mode) {
+  answerMode = mode;
+  localStorage.setItem(MODE_KEY, mode);
+  document.getElementById("modeBtn").textContent = mode === "typed" ? "⌨️ Typed: ON" : "⌨️ Typed: off";
+  document.getElementById("modeSelect").value = mode;
+}
+function levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  if (!m) return n; if (!n) return m;
+  let prev = Array.from({ length: n + 1 }, (_, i) => i);
+  for (let i = 1; i <= m; i++) {
+    const cur = [i];
+    for (let j = 1; j <= n; j++) {
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+    prev = cur;
+  }
+  return prev[n];
+}
+function normAnswer(s) {
+  return s.toLowerCase().trim().replace(/[.,!?'"]/g, "").replace(/\(.*?\)/g, "").replace(/^(a|an|the|to) /, "").trim();
+}
+function checkTypedLocal(input, target) {
+  const given = normAnswer(input);
+  if (!given) return false;
+  const accepted = target.split("/").map(normAnswer).concat([normAnswer(target)]);
+  return accepted.some(a => a === given || (a.length > 3 && levenshtein(a, given) <= 1));
+}
+async function haikuJudge(tl, en, input, rev) {
+  const key = localStorage.getItem(API_KEY);
+  if (!key) return false;
+  const q = rev
+    ? 'The English word/phrase "' + en + '" translates to Tagalog as "' + tl + '". A student answered: "' + input + '". Is that an acceptable Tagalog translation (close variants and synonyms count, unrelated words do not)? Reply with only YES or NO.'
+    : 'The Tagalog word "' + tl + '" means "' + en + '". A student translating it to English answered: "' + input + '". Is that an acceptable translation (synonyms and close variations count, unrelated words do not)? Reply with only YES or NO.';
+  try {
+    const r = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+        "anthropic-dangerous-direct-browser-access": "true"
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 5,
+        messages: [{ role: "user", content: q }]
+      })
+    });
+    const d = await r.json();
+    return /yes/i.test((d.content && d.content[0] && d.content[0].text) || "");
+  } catch (e) { console.warn("Haiku judge failed:", e); return false; }
+}
+async function submitTyped() {
+  if (answered || !current) return;
+  const input = document.getElementById("typedInput").value;
+  if (!input.trim()) return;
+  answered = true;
+  document.getElementById("typedInput").disabled = true;
+  document.getElementById("typedSubmit").disabled = true;
+  const target = current.rev ? current.tl : current.en;
+  let ok = checkTypedLocal(input, target);
+  if (!ok && localStorage.getItem(API_KEY)) {
+    document.getElementById("verdict").textContent = "🤔 checking…";
+    ok = await haikuJudge(current.tl, current.en, input, current.rev);
+  }
+  finishAnswer(ok);
+}
+
+// ---------- speed round ----------
+const SPEED_SECONDS = 60;
+const SPEED_BEST_KEY = "tq_speedBest", SPEED_BEST_KEY_SENT = "tq_speedBestSentences";
+function speedBestKey() { return inSentences() ? SPEED_BEST_KEY_SENT : SPEED_BEST_KEY; }
+let speedMode = false, speedInterval = null, timeLeft = 0;
+function speedDing() { bellStrike(1568, 0, 0.18, 0.2); }
+function knownWords() {
+  return allWords().filter(([tl]) => (progress[tl] || {}).ok >= 3);
+}
+function startSpeedRound() {
+  const pool = knownWords();
+  if (pool.length < 4) {
+    alert("Speed Round unlocks once you've mastered at least 4 words (3 correct answers each). You have " + pool.length + ".");
+    return;
+  }
+  speedMode = true;
+  sessionMode = "normal";
+  words = pool;
+  currentCat = "⚡ Speed Round";
+  document.getElementById("homeScreen").style.display = "none";
+  document.getElementById("quizScreen").style.display = "flex";
+  document.getElementById("sessBar").style.display = "none";
+  document.getElementById("catLabel").textContent = "⚡ Speed Round (" + pool.length + " known words)";
+  document.getElementById("subTitle").textContent = "Read fast, click fast — ding = point";
+  document.getElementById("timeWrap").style.display = "inline";
+  score = 0; streak = 0;
+  timeLeft = SPEED_SECONDS;
+  document.getElementById("timeLeft").textContent = timeLeft;
+  document.getElementById("best").textContent = +(localStorage.getItem(speedBestKey()) || 0);
+  clearInterval(speedInterval);
+  speedInterval = setInterval(() => {
+    timeLeft--;
+    document.getElementById("timeLeft").textContent = timeLeft;
+    if (timeLeft <= 0) endSpeedRound();
+  }, 1000);
+  document.getElementById("score").textContent = 0;
+  nextQuestion();
+}
+function endSpeedRound() {
+  clearInterval(speedInterval); speedInterval = null;
+  const prevBest = +(localStorage.getItem(speedBestKey()) || 0);
+  const isRecord = score > prevBest;
+  if (isRecord) localStorage.setItem(speedBestKey(), score);
+  const v = document.getElementById("verdict");
+  v.textContent = "⏱ Time! " + score + " correct" + (isRecord ? " — NEW RECORD! 🎉" : " (best: " + Math.max(prevBest, score) + ")");
+  v.className = "verdict good";
+  if (isRecord) correctSound();
+  const box = document.getElementById("choices");
+  box.innerHTML = "";
+  const again = document.createElement("button");
+  again.className = "choice"; again.textContent = "⚡ Play again";
+  again.onclick = startSpeedRound;
+  const home = document.createElement("button");
+  home.className = "choice"; home.textContent = "← Home";
+  home.onclick = goHome;
+  box.appendChild(again); box.appendChild(home);
+  document.getElementById("wordDisplay").textContent = "";
+  speedMode = false;
+}
+
+// ---------- words -> sentences bridge ----------
+// Once you've MASTERED single words, surface sentences that USE those words,
+// so vocab automatically feeds into real sentences without manual deck-switching.
+function tokenizeTL(s) {
+  return (s || "").toLowerCase().replace(/[^a-zñ\s]/gi, " ").split(/\s+/).filter(Boolean);
+}
+// Tagalog "glue": pronouns, markers, particles — a small fixed list, safe to color.
+const TL_GLUE = new Set([
+  "ang","ng","mga","sa","na","ay","at","o","kung","kasi","pero","dahil",
+  "ko","mo","niya","namin","natin","ninyo","nila","akin","iyo","kanya",
+  "ako","ka","ikaw","siya","kami","tayo","kayo","sila",
+  "si","sina","ni","nina","kay","kina",
+  "po","ho","ba","raw","daw","pa","din","rin","lang","lamang","naman","nga","yata","muna",
+  "yung","ito","iyan","iyon","dito","diyan","doon","heto","hayan"
+]);
+// Tokens from every word you've MASTERED (so they can be highlighted green in sentences).
+function masteredTokenSet() {
+  const set = new Set();
+  const collect = ([tl]) => {
+    if ((progress[tl] || {}).ok >= MASTER_AT) tokenizeTL(tl).forEach(t => set.add(t));
+  };
+  Object.values(WORD_CATEGORIES).forEach(c => c.words.forEach(collect));
+  customWords.forEach(collect);
+  return set;
+}
+function escHTML(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+// Return a sentence as HTML with each word color-classed: mastered (green),
+// glue (blue), or plain (new). Punctuation/spacing preserved.
+function colorizeTL(str) {
+  const mastered = masteredTokenSet();
+  return str.split(/([A-Za-zÑñ]+)/).map(piece => {
+    if (!/^[A-Za-zÑñ]+$/.test(piece)) return escHTML(piece);
+    const low = piece.toLowerCase();
+    const cls = mastered.has(low) ? "tl-known" : (TL_GLUE.has(low) ? "tl-glue" : "");
+    return cls ? '<span class="' + cls + '">' + escHTML(piece) + '</span>' : escHTML(piece);
+  }).join("");
+}
+// Show text in #wordDisplay; colorize only multi-word Tagalog strings.
+function setWordDisplay(wd, txt, isTagalog) {
+  const legend = document.getElementById("tlLegend");
+  if (isTagalog && /\s/.test((txt || "").trim())) {
+    wd.innerHTML = colorizeTL(txt);
+    if (legend) {
+      legend.innerHTML =
+        '<span><b class="tl-known">●</b> learned</span>' +
+        '<span><b class="tl-glue">●</b> glue (ang, ng, sa…)</span>' +
+        '<span><b>●</b> new</span>';
+      legend.style.display = "flex";
+    }
+  } else {
+    wd.textContent = txt;
+    if (legend) legend.style.display = "none";
+  }
+}
+function learnedSentencePairs() {
+  // tokens from every mastered single word (skip tiny function words like ng/sa/ay)
+  const rootToks = new Set();
+  const collect = ([tl]) => {
+    if ((progress[tl] || {}).ok >= MASTER_AT)
+      tokenizeTL(tl).forEach(t => { if (t.length >= 3) rootToks.add(t); });
+  };
+  Object.values(WORD_CATEGORIES).forEach(c => c.words.forEach(collect));
+  customWords.forEach(collect);
+  if (!rootToks.size) return [];
+  const roots = [...rootToks];
+  const out = [];
+  Object.values(SENTENCE_CATEGORIES).forEach(c => c.words.forEach(pair => {
+    const toks = tokenizeTL(pair[0]);
+    // match a mastered word as a whole token, or as the start of a longer
+    // token (catches simple conjugation/affix variants)
+    if (toks.some(tok => rootToks.has(tok) || roots.some(r => r.length >= 4 && tok.startsWith(r))))
+      out.push(pair);
+  }));
+  return out;
+}
+
+// ---------- home screen ----------
+function masteryOf(wordList) {
+  if (!wordList.length) return 0;
+  const seen = wordList.filter(([tl]) => (progress[tl] || {}).ok >= 3).length;
+  return Math.round(100 * seen / wordList.length);
+}
+function renderHome() {
+  const grid = document.getElementById("catGrid");
+  grid.innerHTML = "";
+  const all = allWords();
+  // learned banner: "X of Y learned" + streak + today's session stats
+  const learned = knownWords().length;
+  const due = dueCount(all);
+  const d = getDaily();
+  const s = getStreak();
+  const trouble = Object.entries(d.trouble).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([w]) => w);
+  let line2 = "🔥 " + s.count + "-day streak · today: " + d.answeredN + " answered (" + d.newSeen + " new, " + d.wrong + " missed)";
+  if (trouble.length) line2 += " · trouble: " + trouble.join(", ");
+  document.getElementById("learnedBanner").innerHTML =
+    "📖 " + learned + " of " + all.length + " learned" +
+    "<small>" + (due ? due + " card" + (due === 1 ? "" : "s") + " due for review" : "nothing due — learn something new") + "</small>" +
+    "<small>" + line2 + "</small>";
+  const makeCard = (name, emoji, wordList, isAll) => {
+    const dEl = document.createElement("div");
+    dEl.className = "cat-card" + (isAll ? " all" : "");
+    const m = masteryOf(wordList);
+    const nDue = dueCount(wordList);
+    dEl.innerHTML = '<span class="emoji">' + emoji + '</span>' +
+      '<div class="name">' + name + '</div>' +
+      '<div class="count">' + wordList.length + ' ' + deckUnit() + ' · ' + m + '% mastered' +
+      (nDue ? ' · <span style="color:var(--accent)">' + nDue + ' due</span>' : '') + '</div>' +
+      '<div class="mastery"><div style="width:' + m + '%"></div></div>';
+    dEl.onclick = () => startQuiz(name, wordList);
+    grid.appendChild(dEl);
+  };
+  makeCard(inJudge() ? "All Sentences" : inSentences() ? "All Sentences" : "All Words",
+    inJudge() ? "🤔" : inSentences() ? "💬" : "📚", all, true);
+  // words -> sentences bridge: only in the Words deck, once you've mastered words
+  // that actually appear in sentences. Self-updating; no remembering required.
+  if (deckMode === "words") {
+    const ls = learnedSentencePairs();
+    if (ls.length) {
+      const lc = document.createElement("div");
+      lc.className = "cat-card levelup";
+      const lm = masteryOf(ls);
+      const lDue = dueCount(ls);
+      lc.innerHTML = '<span class="emoji">🌱</span><div class="name">Level Up: Sentences</div>' +
+        '<div class="count">' + ls.length + ' sentences using words you’ve learned · ' + lm + '% mastered' +
+        (lDue ? ' · <span style="color:var(--accent)">' + lDue + ' due</span>' : '') + '</div>' +
+        '<div class="mastery"><div style="width:' + lm + '%"></div></div>';
+      lc.onclick = () => startQuiz("🌱 Sentences (your learned words)", ls);
+      grid.appendChild(lc);
+    }
+  }
+  // speed round card (not in judge mode — yes/no answers don't fit speed play)
+  if (!inJudge()) {
+    const known = knownWords().length;
+    const sd = document.createElement("div");
+    sd.className = "cat-card all";
+    sd.innerHTML = '<span class="emoji">⚡</span><div class="name">Speed Round</div>' +
+      '<div class="count">' + known + ' known ' + deckUnit() + ' · ' + SPEED_SECONDS + 's · no voices, just dings · best: ' +
+      (+(localStorage.getItem(speedBestKey()) || 0)) + '</div>';
+    sd.onclick = startSpeedRound;
+    grid.appendChild(sd);
+  }
+  // review-all-due card (only when something is due)
+  const totalDue = dueCount(all);
+  if (totalDue) {
+    const rv = document.createElement("div");
+    rv.className = "cat-card all";
+    rv.innerHTML = '<span class="emoji">🔁</span><div class="name">Review (all due)</div>' +
+      '<div class="count"><span style="color:var(--accent)">' + totalDue + ' due</span> across all ' + deckUnit() + ' · clears your queue</div>';
+    rv.onclick = startReviewAll;
+    grid.appendChild(rv);
+  }
+  // trouble words card (only when enough weak spots exist)
+  const tw = troubleWords();
+  if (tw.length >= 4) {
+    const tb = document.createElement("div");
+    tb.className = "cat-card all";
+    tb.innerHTML = '<span class="emoji">🩹</span><div class="name">Trouble Words</div>' +
+      '<div class="count">' + tw.length + ' most-missed ' + deckUnit() + ' · drill your weak spots</div>';
+    tb.onclick = startTrouble;
+    grid.appendChild(tb);
+  }
+  // categories are listed in recommended learning order; number them and flag where to resume
+  let upNextMarked = false;
+  Object.entries(CATS).forEach(([name, c], i) => {
+    let label = (i + 1) + ". " + name;
+    if (!upNextMarked && masteryOf(c.words) < 80) {
+      label = "👉 " + label;
+      upNextMarked = true;
+    }
+    makeCard(label, c.emoji, c.words, false);
+  });
+  if (!inSentences() && customWords.length) makeCard("My Words", "✍️", customWords, false);
+}
+function startQuiz(name, wordList, mode) {
+  currentCat = name;
+  words = wordList.slice();
+  sessionMode = mode || "normal";
+  sessionDone = 0; normalDoneShown = false;
+  // session goal: review/trouble = finite set; normal = today's due + planned new
+  if (sessionMode === "reviewDue" || sessionMode === "trouble") {
+    sessionGoal = dueItems(words).length || quizItems(words).length;
+  } else {
+    const items = quizItems(words);
+    const due = items.filter(it => isDueKey(it.key)).length;
+    const unseen = items.filter(it => !progress[it.key]).length;
+    sessionGoal = due + Math.min(unseen, newCap());
+  }
+  document.getElementById("homeScreen").style.display = "none";
+  document.getElementById("quizScreen").style.display = "flex";
+  document.getElementById("catLabel").textContent = name;
+  document.getElementById("subTitle").textContent = "Listen → answer → earn the reward";
+  document.getElementById("sessBar").style.display = sessionGoal ? "block" : "none";
+  updateSessBar();
+  score = 0; streak = 0;
+  updateStats();
+  nextQuestion();
+}
+function updateSessBar() {
+  const pct = sessionGoal ? Math.min(100, Math.round(100 * sessionDone / sessionGoal)) : 0;
+  document.getElementById("sessFill").style.width = pct + "%";
+}
+function startReviewAll() {
+  if (!dueItems(allWords()).length) { alert("Nothing is due for review right now — come back later or learn new words."); return; }
+  startQuiz("🔁 Review (all due)", allWords(), "reviewDue");
+}
+function startTrouble() {
+  const t = troubleWords();
+  if (t.length < 4) { alert("Not enough trouble words yet — keep practicing and your most-missed words will collect here."); return; }
+  startQuiz("🩹 Trouble Words", t, "trouble");
+}
+// One-tap daily session: no decisions. Runs a normal session over all Words —
+// the engine serves due reviews first, then introduces new words at your pace.
+function smartStart() {
+  if (deckMode !== "words") setDeck("words");
+  startQuiz("▶ Today’s Practice", allWords(), "normal");
+}
+function finishSession(canContinue) {
+  const d = getDaily();
+  speechSynthesis.cancel();
+  if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+  document.getElementById("typedArea").style.display = "none";
+  document.getElementById("playBtn").style.display = "none";
+  document.getElementById("phraseBox").innerHTML = "";
+  document.getElementById("sessFill").style.width = "100%";
+  const wd = document.getElementById("wordDisplay");
+  wd.className = "tl-word"; wd.textContent = "✅ Done!";
+  document.getElementById("tlLegend").style.display = "none";
+  const v = document.getElementById("verdict");
+  const trouble = Object.entries(d.trouble).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([w]) => w);
+  v.className = "verdict good";
+  v.innerHTML = "Today: " + d.answeredN + " answered · " + d.newSeen + " new · " + d.wrong + " missed" +
+    (trouble.length ? "<br><span style='color:var(--muted);font-weight:400'>trouble: " + trouble.join(", ") + "</span>" : "");
+  correctSound();
+  const box = document.getElementById("choices");
+  box.style.display = "grid"; box.innerHTML = "";
+  if (canContinue) {
+    const cont = document.createElement("button");
+    cont.className = "choice"; cont.textContent = "Keep practicing";
+    cont.onclick = () => { normalDoneShown = true; document.getElementById("playBtn").style.display = "block"; nextQuestion(); };
+    box.appendChild(cont);
+  }
+  const home = document.createElement("button");
+  home.className = "choice"; home.textContent = "← Home";
+  home.onclick = goHome;
+  box.appendChild(home);
+}
+function goHome() {
+  if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+  speechSynthesis.cancel();
+  speedMode = false;
+  sessionMode = "normal";
+  clearInterval(speedInterval); speedInterval = null;
+  document.getElementById("timeWrap").style.display = "none";
+  document.getElementById("sessBar").style.display = "none";
+  document.getElementById("playBtn").style.display = "block";
+  answered = false; current = null;
+  document.getElementById("quizScreen").style.display = "none";
+  document.getElementById("homeScreen").style.display = "block";
+  document.getElementById("subTitle").textContent = "Pick a category to start";
+  renderHome(); // refresh mastery bars + today's stats
+}
+
+// ---------- quiz flow ----------
+function nextQuestion() {
+  if (!words.length) return;
+  // session completion checks (skip in speed round)
+  if (!speedMode) {
+    if (sessionMode === "reviewDue" && !dueItems(words).length) return finishSession(false);
+    if (sessionMode === "trouble" && sessionDone >= sessionGoal) return finishSession(false);
+    if (sessionMode === "normal" && !normalDoneShown && sessionGoal && sessionDone >= sessionGoal && !dueItems(words).length) {
+      return finishSession(true);
+    }
+  }
+  answered = false;
+  document.getElementById("phraseBox").innerHTML = "";
+  current = speedMode
+    ? (() => { const [tl, en] = words[Math.floor(Math.random() * words.length)]; return { tl, en, key: tl, rev: false }; })()
+    : pickItem();
+  if (!current) return finishSession(sessionMode === "normal"); // nothing left to serve
+  const { tl, en, rev } = current;
+  const judge = inJudge() && !speedMode;
+  const typed = !judge && answerMode === "typed" && !speedMode;
+  document.getElementById("typedArea").style.display = typed ? "flex" : "none";
+  document.getElementById("choices").style.display = typed ? "none" : "grid";
+  document.getElementById("peekBtn").style.display = rev ? "none" : "inline-block";
+  const box = document.getElementById("choices");
+  box.innerHTML = "";
+  if (judge) {
+    [["✅ Makes sense", true], ["❌ Doesn't make sense", false]].forEach(([label, val]) => {
+      const b = document.createElement("button");
+      b.className = "choice"; b.textContent = label;
+      b.onclick = () => answer(b, val);
+      box.appendChild(b);
+    });
+  } else if (typed) {
+    const inputEl = document.getElementById("typedInput");
+    inputEl.value = ""; inputEl.disabled = false;
+    inputEl.placeholder = rev ? "type the Tagalog word…" : "type the English meaning…";
+    document.getElementById("typedSubmit").disabled = false;
+    inputEl.focus();
+  } else {
+    // distractors: same side (English for forward, Tagalog for reverse)
+    const answerOf = w => rev ? w[0] : w[1];
+    const target = rev ? tl : en;
+    const grp = GROUP_OF[tl];
+    // Prefer decoys from the SAME group (related words) for sensible choices;
+    // fall back to the whole deck, then everything, if a group is too small.
+    let pool = words.filter(w => answerOf(w) !== target && GROUP_OF[w[0]] === grp);
+    if (pool.length < 3) pool = words.filter(w => answerOf(w) !== target);
+    if (pool.length < 3) pool = pool.concat(allWords().filter(w => answerOf(w) !== target));
+    const distractors = [];
+    while (distractors.length < 3 && pool.length) {
+      const i = Math.floor(Math.random() * pool.length);
+      const cand = answerOf(pool.splice(i, 1)[0]);
+      if (!distractors.includes(cand)) distractors.push(cand);
+    }
+    // Fisher-Yates shuffle: every slot equally likely, so the correct answer
+    // isn't biased toward any position (a .sort(()=>Math.random()-.5) is not uniform).
+    const options = [...distractors, target];
+    for (let i = options.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [options[i], options[j]] = [options[j], options[i]];
+    }
+    options.forEach(opt => {
+      const b = document.createElement("button");
+      b.className = "choice"; b.textContent = opt;
+      b.onclick = () => answer(b, opt);
+      box.appendChild(b);
+    });
+  }
+  document.getElementById("verdict").textContent = "";
+  document.getElementById("verdict").className = "verdict";
+  const wd = document.getElementById("wordDisplay");
+  if (speedMode) { showPrompt(true); return; } // speed round: read it, no voices
+  if (judge) {
+    // judge mode: show the sentence (reading helps grammar judgment) and speak it
+    setWordDisplay(wd, tl, true); wd.className = "tl-word";
+    document.getElementById("catLabel").textContent = currentCat + " · 🤔 makes sense?";
+    speak(tl);
+  } else if (rev) {
+    // reverse card: show the English, produce the Tagalog
+    setWordDisplay(wd, en, false); wd.className = "tl-word";
+    document.getElementById("catLabel").textContent = currentCat + " · 🔁 reverse";
+    speakEnglish(en);
+  } else {
+    document.getElementById("catLabel").textContent = currentCat;
+    if (gttsOk || filVoice) { setWordDisplay(wd, "(listen first — tap 👁 to peek)", false); wd.className = "hidden-word"; }
+    else showPrompt(true);
+    speak(tl);
+  }
+}
+function showPrompt(force) {
+  const wd = document.getElementById("wordDisplay");
+  if (!current) { wd.textContent = ""; return; }
+  const showingEnglish = current.rev && !force;
+  setWordDisplay(wd, showingEnglish ? current.en : current.tl, !showingEnglish);
+  wd.className = "tl-word";
+}
+function answer(btn, choice) {
+  if (answered) return;
+  answered = true;
+  // judge mode: choice is a boolean (does the sentence make sense?)
+  if (current.judge) {
+    const correct = choice === current.good;
+    document.querySelectorAll(".choice").forEach(b => b.disabled = true);
+    btn.classList.add(correct ? "correct" : "wrong");
+    finishAnswer(correct);
+    return;
+  }
+  const { tl, en, rev } = current;
+  const target = rev ? tl : en;
+  if (speedMode) {
+    if (choice === target) { speedDing(); score++; btn.classList.add("correct"); }
+    else {
+      buzz(); btn.classList.add("wrong");
+      document.querySelectorAll(".choice").forEach(b => { if (b.textContent === target) b.classList.add("correct"); });
+    }
+    document.querySelectorAll(".choice").forEach(b => b.disabled = true);
+    document.getElementById("score").textContent = score;
+    setTimeout(() => { if (speedMode) nextQuestion(); }, choice === target ? 200 : 600);
+    return;
+  }
+  document.querySelectorAll(".choice").forEach(b => {
+    b.disabled = true;
+    if (b === btn && choice !== target) b.classList.add("wrong");
+    if (b.textContent === target) b.classList.add(choice === target && b === btn ? "correct" : "correct");
+  });
+  finishAnswer(choice === target);
+}
+function finishAnswer(ok) {
+  const { tl, en, key, rev } = current;
+  const isNew = !progress[key];
+  const p = progress[key] = progress[key] || { ok: 0, miss: 0 };
+  const v = document.getElementById("verdict");
+  showPrompt(true);
+  // daily stats + streak
+  const d = getDaily();
+  d.answeredN++;
+  if (isNew) d.newSeen++;
+  let extraDelay = 0;
+  const judge = !!current.judge;
+  if (ok) {
+    correctSound();
+    p.ok++; score++; streak++; d.correct++;
+    srsCorrect(p);
+    if (streak > best) { best = streak; localStorage.setItem(LS.best, best); }
+    if (judge) {
+      v.textContent = (current.good ? "✅ Yes — it makes sense." : "✅ Right — it does NOT make sense.");
+      v.className = "verdict good";
+      document.getElementById("phraseBox").innerHTML = '<div class="phrase-en">' + current.expl + '</div>';
+      extraDelay = 1400;
+    } else {
+      v.textContent = "✅ Correct! " + tl + " = " + en;
+      v.className = "verdict good";
+      if (rev) setTimeout(() => speak(tl), 800);        // reinforce the Tagalog you produced
+      else setTimeout(() => speakEnglish(en), 800);     // say the meaning after the bell
+      if (!rev && phrasesOn() && PHRASE_DATA[tl]) {
+        const [ptl, pen] = PHRASE_DATA[tl];
+        document.getElementById("phraseBox").innerHTML =
+          '<div class="phrase-tl">' + ptl + '</div><div class="phrase-en">' + pen + '</div>';
+        setTimeout(() => speak(ptl), 1800);
+        extraDelay = 1600;
+      }
+    }
+  } else {
+    buzz();
+    p.miss++; streak = 0; d.wrong++;
+    d.trouble[tl] = (d.trouble[tl] || 0) + 1;
+    srsWrong(p);
+    if (judge) {
+      v.textContent = (current.good ? "❌ Actually it DOES make sense." : "❌ Actually it does NOT make sense.");
+      v.className = "verdict bad";
+      document.getElementById("phraseBox").innerHTML = '<div class="phrase-en">' + current.expl + '</div>';
+      extraDelay = 1800;
+    } else {
+      v.textContent = "❌ " + tl + " = " + en;
+      v.className = "verdict bad";
+    }
+  }
+  saveDaily(d);
+  bumpStreak();
+  localStorage.setItem(LS.prog, JSON.stringify(progress));
+  sessionDone++;
+  updateSessBar();
+  updateStats();
+  const inQuiz = () => document.getElementById("quizScreen").style.display !== "none";
+  setTimeout(() => { if (inQuiz() && !speedMode) nextQuestion(); }, (ok ? 2400 : 2600) + extraDelay);
+}
+function updateStats() {
+  document.getElementById("score").textContent = score;
+  document.getElementById("streak").textContent = streak;
+  document.getElementById("best").textContent = best;
+}
+
+// ---------- controls ----------
+document.getElementById("playBtn").onclick = () => {
+  if (!current) return;
+  if (current.rev) speakEnglish(current.en); else speak(current.tl);
+};
+document.getElementById("modeBtn").onclick = () => {
+  setAnswerMode(answerMode === "typed" ? "choice" : "typed");
+  if (current && !answered && !speedMode) nextQuestion(); // re-deal in the new mode
+};
+document.getElementById("modeSelect").onchange = e => setAnswerMode(e.target.value);
+document.getElementById("typedSubmit").onclick = submitTyped;
+document.getElementById("typedInput").addEventListener("keydown", e => { if (e.key === "Enter") submitTyped(); });
+document.getElementById("saveKeyBtn").onclick = () => {
+  const k = document.getElementById("apiKeyInput").value.trim();
+  if (k) { localStorage.setItem(API_KEY, k); alert("Key saved. Near-miss answers will now be judged by Haiku."); }
+  else { localStorage.removeItem(API_KEY); alert("Key cleared — local checking only."); }
+  document.getElementById("apiKeyInput").value = "";
+};
+document.getElementById("peekBtn").onclick = () => showPrompt(true);
+document.getElementById("skipBtn").onclick = nextQuestion;
+document.getElementById("homeBtn").onclick = goHome;
+document.getElementById("startHereBtn").onclick = smartStart;
+document.getElementById("settingsBtn").onclick = () => {
+  const b = document.getElementById("settingsBox");
+  b.style.display = b.style.display === "block" ? "none" : "block";
+};
+document.getElementById("soundSelect").onchange = e => {
+  winSoundName = e.target.value;
+  localStorage.setItem(SOUND_KEY, winSoundName);
+  document.getElementById("deleteSoundBtn").style.display = BUILTIN_SOUNDS[winSoundName] ? "none" : "inline-block";
+  correctSound(); // instant audition
+};
+document.getElementById("previewSoundBtn").onclick = correctSound;
+document.getElementById("addSoundBtn").onclick = () => document.getElementById("soundFile").click();
+document.getElementById("soundFile").onchange = async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  let name = (prompt("Name this sound:", file.name.replace(/\.[^.]+$/, "")) || "").trim();
+  if (!name) return;
+  if (BUILTIN_SOUNDS[name]) { alert("That name is taken by a built-in sound."); return; }
+  try {
+    await saveCustomSound(name, file);
+    winSoundName = name;
+    localStorage.setItem(SOUND_KEY, name);
+    renderSoundSelect();
+    correctSound();
+  } catch (err) { alert("Couldn't save sound: " + err); }
+  e.target.value = "";
+};
+document.getElementById("deleteSoundBtn").onclick = async () => {
+  if (BUILTIN_SOUNDS[winSoundName]) return;
+  if (!confirm('Remove "' + winSoundName + '"?')) return;
+  await deleteCustomSound(winSoundName);
+  winSoundName = "Chime F5 (single)";
+  localStorage.setItem(SOUND_KEY, winSoundName);
+  renderSoundSelect();
+};
+// new settings: pacing, reverse cards, phrases
+document.getElementById("newCapSelect").onchange = e => { localStorage.setItem(NEWCAP_KEY, e.target.value); renderHome(); };
+document.getElementById("revSelect").onchange = e => { localStorage.setItem(REV_KEY, e.target.value); renderHome(); };
+document.getElementById("phraseSelect").onchange = e => { localStorage.setItem(PHRASE_KEY, e.target.value); };
+document.getElementById("deckWords").onclick = () => setDeck("words");
+document.getElementById("deckSentences").onclick = () => setDeck("sentences");
+document.getElementById("deckConj").onclick = () => setDeck("conj");
+document.getElementById("deckJudge").onclick = () => setDeck("judge");
+document.getElementById("importBtn").onclick = () => {
+  const b = document.getElementById("importBox");
+  b.style.display = b.style.display === "block" ? "none" : "block";
+};
+document.getElementById("importSave").onclick = () => {
+  const lines = document.getElementById("importText").value.split("\n");
+  let added = 0;
+  const existing = allWords();
+  lines.forEach(l => {
+    const m = l.split("=");
+    if (m.length === 2) {
+      const tl = m[0].trim(), en = m[1].trim();
+      if (tl && en && !existing.some(w => w[0] === tl)) { customWords.push([tl, en]); added++; }
+    }
+  });
+  localStorage.setItem(LS.custom, JSON.stringify(customWords));
+  document.getElementById("importText").value = "";
+  document.getElementById("importBox").style.display = "none";
+  renderHome();
+  alert(added + " word(s) added to My Words.");
+};
+
+// ---------- backup: export/import everything ----------
+const BACKUP_LS_KEYS = [LS.custom, LS.prog, LS.best, SPEED_BEST_KEY, SPEED_BEST_KEY_SENT, SOUND_KEY, MODE_KEY,
+  DAILY_KEY, STREAK_KEY, NEWCAP_KEY, REV_KEY, PHRASE_KEY, DECK_KEY];
+function blobToDataURL(blob) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result); r.onerror = () => rej(r.error);
+    r.readAsDataURL(blob);
+  });
+}
+document.getElementById("exportBtn").onclick = async () => {
+  const data = { version: 2, exported: new Date().toISOString(), localStorage: {}, sounds: {} };
+  BACKUP_LS_KEYS.forEach(k => { const v = localStorage.getItem(k); if (v !== null) data.localStorage[k] = v; });
+  for (const [name, blob] of Object.entries(customSounds)) {
+    data.sounds[name] = await blobToDataURL(blob);
+  }
+  const out = new Blob([JSON.stringify(data)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(out);
+  a.download = "kaipher-practice-backup-" + new Date().toISOString().slice(0, 10) + ".json";
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
+document.getElementById("importBackupBtn").onclick = () => document.getElementById("backupFile").click();
+document.getElementById("backupFile").onchange = async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    if (!data || !data.localStorage) throw new Error("not a Kaipher Practice backup");
+    if (!confirm("Restore backup from " + (data.exported || "unknown date") + "? This overwrites current progress.")) return;
+    Object.entries(data.localStorage).forEach(([k, v]) => localStorage.setItem(k, v));
+    for (const [name, dataUrl] of Object.entries(data.sounds || {})) {
+      const blob = await (await fetch(dataUrl)).blob();
+      await saveCustomSound(name, blob);
+    }
+    alert("Backup restored.");
+    location.reload();
+  } catch (err) { alert("Couldn't import backup: " + err.message); }
+  e.target.value = "";
+};
+document.getElementById("resetBtn").onclick = () => {
+  if (confirm("Reset all progress and custom words?")) {
+    [LS.custom, LS.prog, LS.best, SPEED_BEST_KEY, SPEED_BEST_KEY_SENT, DAILY_KEY, STREAK_KEY].forEach(k => localStorage.removeItem(k));
+    location.reload();
+  }
+};
+
+// ---------- init ----------
+updateDeckToggle();
+renderHome();
+loadCustomSounds();
+setAnswerMode(answerMode);
+document.getElementById("newCapSelect").value = String(newCap());
+document.getElementById("revSelect").value = reverseOn() ? "on" : "off";
+document.getElementById("phraseSelect").value = phrasesOn() ? "on" : "off";
+
+// ---------- hover-to-see-Tagalog ----------
+// Hover any choice and a popup shows its partner word (English choice -> Tagalog).
+(function () {
+  const tip = document.createElement("div");
+  tip.className = "hover-tip";
+  document.body.appendChild(tip);
+  // Given a choice's visible text, return the OTHER side of the pair.
+  function translationOf(text) {
+    for (const w of allWords()) {
+      if (w[1] === text) return w[0]; // English -> Tagalog
+      if (w[0] === text) return w[1]; // Tagalog -> English
+    }
+    return null;
+  }
+  function place(e) {
+    const x = Math.min(e.clientX + 16, window.innerWidth - tip.offsetWidth - 12);
+    const y = Math.min(e.clientY + 20, window.innerHeight - tip.offsetHeight - 12);
+    tip.style.left = Math.max(8, x) + "px";
+    tip.style.top = Math.max(8, y) + "px";
+  }
+  document.addEventListener("mouseover", e => {
+    // Only reveal AFTER you've committed an answer — peeking during recall
+    // kills the retrieval effort that actually builds memory.
+    if (!answered) return;
+    const c = e.target.closest && e.target.closest(".choice");
+    if (!c) return;
+    const t = translationOf(c.textContent.trim());
+    if (!t) return;
+    tip.textContent = t;
+    tip.style.display = "block";
+    place(e);
+  });
+  document.addEventListener("mousemove", e => {
+    if (tip.style.display === "block") place(e);
+  });
+  document.addEventListener("mouseout", e => {
+    if (e.target.closest && e.target.closest(".choice")) tip.style.display = "none";
+  });
+})();
+
+</script>
+<script>
+/* inlined: timer.js */
+// Kaipher Practice — AUTO practice timer (self-contained, own localStorage keys).
+//
+// Behavior (no manual start/stop needed):
+//  • Accrues time ONLY while the app is visible AND you've interacted recently.
+//  • Auto-pauses when you switch away/lock the screen, or go idle (no interaction
+//    for IDLE_MS). Auto-resumes the instant you interact again (tap an answer, etc.).
+//  • Accumulates toward a goal across sit-downs and PERSISTS, so you never lose
+//    time by forgetting to restart. When the goal is reached it alarms, then
+//    resets so the next block starts fresh on its own.
+//  • Also keeps a lifetime "total time" clock.
+//
+// IDLE_MS = 2 min: long enough that normal think-time between cards never pauses
+// it, short enough that walking away stops the clock quickly.
+
+(function () {
+  const K_TOTAL   = "tt_totalMs";    // lifetime active ms
+  const K_GOALMIN = "tt_goalMin";    // practice goal in minutes
+  const K_ELAPSED = "tt_elapsedMs";  // active ms accrued toward the current goal block
+
+  const IDLE_MS = 2 * 60 * 1000;     // auto-pause after 2 min of no interaction
+  const MAX_DT  = 60 * 1000;         // ignore gaps > 60s (sleep/wake) so they don't over-count
+
+  const $ = id => document.getElementById(id);
+  const elTotal = $("ttTotal"), elCd = $("ttCountdown"), elToggle = $("ttToggle"), elSet = $("ttSet");
+  if (!elTotal) return; // timer widget not on this page
+
+  let totalMs   = +(localStorage.getItem(K_TOTAL)   || 0);
+  let goalMin   = +(localStorage.getItem(K_GOALMIN) || 60);
+  let elapsedMs = +(localStorage.getItem(K_ELAPSED) || 0);
+  let lastTick  = Date.now();
+  let lastActivity = Date.now();
+  let alarming = false, alarmTimer = null;
+
+  // any real interaction counts as "still practicing"
+  ["mousedown", "keydown", "touchstart", "pointerdown", "click"].forEach(ev =>
+    window.addEventListener(ev, () => { lastActivity = Date.now(); if (alarming) stopAlarm(); }, { passive: true }));
+
+  const goalMs = () => goalMin * 60000;
+  const remaining = () => Math.max(0, goalMs() - elapsedMs);
+  const isActive = () => document.visibilityState === "visible" && (Date.now() - lastActivity) < IDLE_MS;
+
+  function fmtTotal(ms) {
+    const m = Math.floor(ms / 60000); return "⏱ " + Math.floor(m / 60) + "h " + (m % 60) + "m";
+  }
+  function fmtRemain(ms) {
+    const s = Math.ceil(ms / 1000), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), ss = s % 60;
+    return (h ? h + ":" + String(m).padStart(2, "0") : m + "") + ":" + String(ss).padStart(2, "0");
+  }
+  function save() {
+    localStorage.setItem(K_TOTAL, Math.round(totalMs));
+    localStorage.setItem(K_ELAPSED, Math.round(elapsedMs));
+  }
+
+  // ---------- alarm ----------
+  let actx;
+  function beep() {
+    try {
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator(), g = actx.createGain(), t = actx.currentTime;
+      o.type = "sine"; o.frequency.value = 880;
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.2, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
+      o.connect(g).connect(actx.destination); o.start(t); o.stop(t + 0.55);
+    } catch (e) {}
+  }
+  function fireAlarm() {
+    alarming = true;
+    elCd.classList.add("alarm");
+    let n = 0;
+    const ring = () => {
+      try { (typeof correctSound === "function" ? correctSound() : beep()); } catch (e) { beep(); }
+      if (++n < 8) alarmTimer = setTimeout(ring, 700);
+    };
+    ring();
+    setTimeout(() => { if (alarming) alert("⏰ Practice goal reached — " + goalMin + " minutes of focused practice. Magaling!"); }, 300);
+  }
+  function stopAlarm() {
+    alarming = false; clearTimeout(alarmTimer); elCd.classList.remove("alarm");
+    elapsedMs = 0; save(); render();   // reset for the next block automatically
+  }
+
+  function setGoal() {
+    const v = prompt("Practice goal in minutes (e.g. 60, 120):", String(goalMin));
+    if (v === null) return;
+    goalMin = Math.max(1, Math.min(600, parseInt(v, 10) || goalMin));
+    localStorage.setItem(K_GOALMIN, goalMin);
+    if (elapsedMs > goalMs()) { elapsedMs = 0; save(); }
+    render();
+  }
+  function resetBlock() {
+    if (confirm("Reset this practice block back to " + goalMin + " minutes?")) { stopAlarm(); elapsedMs = 0; save(); render(); }
+  }
+
+  function render() {
+    elTotal.textContent = fmtTotal(totalMs);
+    elCd.textContent = fmtRemain(remaining());
+    // green dot when actively counting, grey when auto-paused
+    const active = isActive() && !alarming && remaining() > 0;
+    elCd.style.color = alarming ? "" : (active ? "var(--good)" : "var(--muted)");
+    elToggle.textContent = active ? "●" : "❚❚";
+    elToggle.title = active ? "Practicing (auto) — tap to reset block" : "Paused (auto) — interact to resume; tap to reset";
+  }
+
+  function tick() {
+    const now = Date.now();
+    const dt = now - lastTick;
+    lastTick = now;
+    if (dt > 0 && dt < MAX_DT && isActive()) {
+      totalMs += dt;
+      if (remaining() > 0) elapsedMs += dt;
+    }
+    if (remaining() <= 0 && !alarming) fireAlarm();
+    render();
+  }
+
+  elToggle.onclick = resetBlock;   // manual reset of the current block (rarely needed)
+  elSet.onclick = setGoal;         // set the practice goal length
+
+  setInterval(save, 10000);
+  document.addEventListener("visibilitychange", () => { lastTick = Date.now(); save(); });
+  window.addEventListener("beforeunload", save);
+
+  render();
+  setInterval(tick, 1000);
+})();
+
+</script>
+</body>
+</html>

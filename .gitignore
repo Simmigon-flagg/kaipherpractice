@@ -1,0 +1,18 @@
+# Dependencies (never commit — reinstall with npm install)
+node_modules/
+expo-app/node_modules/
+serve/node_modules/
+
+# Expo / build caches
+.expo/
+expo-app/.expo/
+dist/
+web-build/
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
