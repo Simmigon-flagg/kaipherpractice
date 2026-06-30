@@ -1762,14 +1762,20 @@ function stopSpeech() {
   if (currentAudio) { currentAudio.pause(); currentAudio = null; }
   if ("speechSynthesis" in window) speechSynthesis.cancel();
 }
+// Chrome / iOS Safari race: speechSynthesis.cancel() runs asynchronously and can swallow a
+// speak() issued in the SAME tick — which truncates the word. Cancel, then speak on the next
+// tick so cancel only kills the PREVIOUS audio, never the fresh utterance.
+function sayUtterance(u) {
+  try { speechSynthesis.cancel(); } catch (e) {}
+  setTimeout(() => { try { speechSynthesis.speak(u); } catch (e) {} }, 70);
+}
 function speakFallback(word) {
   if ("speechSynthesis" in window) {
-    speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(word);
     if (filVoice) { u.voice = filVoice; u.lang = filVoice.lang; }
     else { u.lang = "fil-PH"; } // no installed Filipino voice — still ask the OS engine, don't go silent
     u.rate = 0.85;
-    speechSynthesis.speak(u);
+    sayUtterance(u);
   } else {
     showPrompt(true);
   }
@@ -1792,10 +1798,9 @@ function speak(word) {
     return;
   }
   if (filVoice) {
-    speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(word);
     u.voice = filVoice; u.lang = filVoice.lang; u.rate = 0.85;
-    speechSynthesis.speak(u);
+    sayUtterance(u);
     return;
   }
   showPrompt(true);
@@ -1806,8 +1811,7 @@ function speakEnglish(text) {
   u.lang = "en-US";
   u.rate = 1.0;
   u.pitch = 1.3; // lighter / younger
-  speechSynthesis.cancel();
-  speechSynthesis.speak(u);
+  sayUtterance(u);
 }
 
 // ---------- SRS: Leitner boxes (items = forward "tl" and reverse "rev:tl") ----------
