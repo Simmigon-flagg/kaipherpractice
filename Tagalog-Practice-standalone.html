@@ -2,6 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<!-- Google Translate TTS (client=tw-ob) returns 404 when a referrer is sent from a hosted
+     HTTPS origin (e.g. GitHub Pages), but 200 with no referrer. Strip the referrer so the
+     online behavior matches local-file behavior and the Tagalog voices keep working. -->
+<meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Kaipher Practice</title>
 <style>
@@ -1648,10 +1652,12 @@ pickVoice();
 let currentAudio = null;
 let gttsFails = 0; // consecutive Google-TTS failures; only give up after several in a row
 function speakFallback(word) {
-  if (filVoice) {
+  if ("speechSynthesis" in window) {
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(word);
-    u.voice = filVoice; u.lang = filVoice.lang; u.rate = 0.85;
+    if (filVoice) { u.voice = filVoice; u.lang = filVoice.lang; }
+    else { u.lang = "fil-PH"; } // no installed Filipino voice — still ask the OS engine, don't go silent
+    u.rate = 0.85;
     speechSynthesis.speak(u);
   } else {
     showPrompt(true);
@@ -1665,9 +1671,8 @@ function speak(word) {
     currentAudio = a;
     const onFail = err => {
       if (err && err.name === "NotAllowedError") return; // autoplay block, not a real failure
-      // one blip shouldn't kill audio for the whole session: fall back for THIS word,
-      // keep trying Google on the next one, and only latch off after 3 in a row.
-      if (++gttsFails >= 3) { gttsOk = false; updateVoiceNote(); }
+      // A transient Google block/rate-limit shouldn't kill audio for the whole session:
+      // fall back audibly for THIS word, and keep trying Google on the next one.
       speakFallback(word);
     };
     a.addEventListener("playing", () => { gttsFails = 0; }); // success resets the counter
