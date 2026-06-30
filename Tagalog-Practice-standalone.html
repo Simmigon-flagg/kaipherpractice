@@ -2785,5 +2785,13 @@ document.getElementById("phraseSelect").value = phrasesOn() ? "on" : "off";
 })();
 
 </script>
+<script>
+  // Register the TTS-caching service worker so the REAL Google audio is saved after first play.
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("sw.js").catch(e => console.warn("SW register failed:", e));
+    });
+  }
+</script>
 </body>
 </html>
