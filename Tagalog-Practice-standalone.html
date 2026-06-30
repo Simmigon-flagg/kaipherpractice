@@ -1686,6 +1686,16 @@ pickVoice();
 
 let currentAudio = null;
 let gttsFails = 0; // consecutive Google-TTS failures; only give up after several in a row
+// Delayed reinforcement speech (the "+800ms / +1800ms" replays after a correct answer) used
+// raw setTimeouts that were never cancelled — so a leftover replay could fire as the NEXT word
+// started and cancel it ("can't hear the next word"). Track them and clear on each new word.
+let pendingSpeech = [];
+function laterSpeak(fn, ms) { pendingSpeech.push(setTimeout(fn, ms)); }
+function stopSpeech() {
+  pendingSpeech.forEach(clearTimeout); pendingSpeech = [];
+  if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+  if ("speechSynthesis" in window) speechSynthesis.cancel();
+}
 function speakFallback(word) {
   if ("speechSynthesis" in window) {
     speechSynthesis.cancel();
@@ -2268,6 +2278,7 @@ function nextQuestion() {
   }
   document.getElementById("verdict").textContent = "";
   document.getElementById("verdict").className = "verdict";
+  stopSpeech(); // kill any leftover reinforcement audio so it can't clobber this word
   const wd = document.getElementById("wordDisplay");
   if (speedMode) { showPrompt(true); return; } // speed round: read it, no voices
   if (judge) {
@@ -2350,13 +2361,13 @@ function finishAnswer(ok) {
     } else {
       v.textContent = "✅ Correct! " + tl + " = " + en;
       v.className = "verdict good";
-      if (rev) setTimeout(() => speak(tl), 800);        // reinforce the Tagalog you produced
-      else setTimeout(() => speakEnglish(en), 800);     // say the meaning after the bell
+      if (rev) laterSpeak(() => speak(tl), 800);        // reinforce the Tagalog you produced
+      else laterSpeak(() => speakEnglish(en), 800);     // say the meaning after the bell
       if (!rev && phrasesOn() && PHRASE_DATA[tl]) {
         const [ptl, pen] = PHRASE_DATA[tl];
         document.getElementById("phraseBox").innerHTML =
           '<div class="phrase-tl">' + ptl + '</div><div class="phrase-en">' + pen + '</div>';
-        setTimeout(() => speak(ptl), 1800);
+        laterSpeak(() => speak(ptl), 1800);
         extraDelay = 1600;
       }
     }
