@@ -165,6 +165,26 @@
     width: 30px; height: 30px; border-radius: 50%; font-size: .9rem;
   }
   #studyTimer .tt-btn:hover { background: var(--accent); }
+
+  /* ---------- Phones (iPhone 14 Plus/Pro Max ~430px and smaller) ---------- */
+  /* Without this, desktop-sized fonts/padding make the quiz card taller than the
+     screen, so the lower choices and the replay button get cut off. Shrink the
+     vertical rhythm so the whole card fits on one phone screen. */
+  @media (max-width: 480px) {
+    body { padding: 12px 12px; font-size: 1.05rem; }
+    .stats { gap: 14px; font-size: 1rem; margin-bottom: 10px; }
+    #quizScreen .quiz-head { margin-bottom: 10px; }
+    .card { padding: 16px; border-radius: 14px; }
+    .word-area { min-height: 60px; margin-bottom: 10px; }
+    .tl-word { font-size: 2.1rem; }
+    .play-btn { font-size: 1.2rem; padding: 11px 22px; margin-bottom: 12px; }
+    .choices { gap: 8px; }
+    .choice { padding: 13px; font-size: 1.2rem; border-radius: 10px; }
+    .verdict { min-height: 26px; margin-top: 10px; font-size: 1.1rem; }
+    .row { margin-top: 12px; gap: 8px; }
+    .ghost-btn { padding: 10px 14px; font-size: 1rem; }
+    .voice-note { font-size: .85rem; margin-top: 10px; }
+  }
 </style>
 </head>
 <body>
