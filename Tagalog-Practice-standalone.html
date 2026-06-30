@@ -282,6 +282,7 @@
         <div id="wordDisplay" class="hidden-word">(listen first — tap 👁 to peek)</div>
       </div>
       <div id="tlLegend"></div>
+      <button class="play-btn" id="playBtn" style="margin:0 auto 14px; display:block">🔊 Play word</button>
       <div class="choices" id="choices"></div>
       <div id="typedArea">
         <input type="text" id="typedInput" placeholder="type the English meaning…" autocomplete="off" autocapitalize="off">
@@ -289,7 +290,6 @@
       </div>
       <div class="verdict" id="verdict"></div>
       <div id="phraseBox"></div>
-      <button class="play-btn" id="playBtn" style="margin:18px auto 0; display:block">🔊 Play word</button>
     </div>
     <div class="row">
       <button class="ghost-btn" id="peekBtn">👁 Show word</button>
@@ -1364,7 +1364,21 @@ function bumpStreak() {
 
 // ---------- audio: reward sounds ----------
 let actx;
-function ctx() { if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); return actx; }
+function ctx() {
+  if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+  if (actx.state === "suspended") actx.resume(); // iOS Safari starts suspended
+  return actx;
+}
+// iOS/Safari start the AudioContext suspended, so the Web-Audio reward chime stays
+// muted (only the <audio>-based voice plays) until it's resumed inside a user gesture.
+// Resume on the first tap/click anywhere so "correct answer" sound works on iPhone.
+function unlockAudio() {
+  try { const c = ctx(); if (c.state === "suspended") c.resume(); } catch (e) {}
+  document.removeEventListener("touchend", unlockAudio);
+  document.removeEventListener("click", unlockAudio);
+}
+document.addEventListener("touchend", unlockAudio, { passive: true });
+document.addEventListener("click", unlockAudio);
 function chimeNote(freq, dt, dur, vol) {
   const c = ctx(), t = c.currentTime + dt;
   [[1, vol], [4, vol * 0.15]].forEach(([mult, v]) => {
