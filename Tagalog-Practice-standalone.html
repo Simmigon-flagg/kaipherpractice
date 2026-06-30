@@ -2673,7 +2673,7 @@ document.getElementById("phraseSelect").value = phrasesOn() ? "on" : "off";
   const K_GOALMIN = "tt_goalMin";    // practice goal in minutes
   const K_ELAPSED = "tt_elapsedMs";  // active ms accrued toward the current goal block
 
-  const IDLE_MS = 2 * 60 * 1000;     // auto-pause after 2 min of no interaction
+  const IDLE_MS = 10 * 1000;         // auto-pause after 10s of no interaction (change to 7*1000 etc. to taste)
   const MAX_DT  = 60 * 1000;         // ignore gaps > 60s (sleep/wake) so they don't over-count
 
   const $ = id => document.getElementById(id);
