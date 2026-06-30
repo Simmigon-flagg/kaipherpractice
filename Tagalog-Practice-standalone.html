@@ -104,7 +104,8 @@
     padding: 20px; border-radius: 12px; font-size: 1.5rem; cursor: pointer;
     transition: border-color .1s, background .1s;
   }
-  .choice:hover { border-color: var(--accent); }
+  /* No highlight border on choices — sticky :hover/:focus on touch left a blue ring. */
+  .choice:hover, .choice:focus, .choice:focus-visible { border-color: transparent; outline: none; }
   /* hover-to-see-Tagalog popup */
   .hover-tip {
     position: fixed; z-index: 9999; pointer-events: none; display: none;
