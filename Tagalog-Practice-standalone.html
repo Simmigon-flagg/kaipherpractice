@@ -1794,13 +1794,6 @@ function stopSpeech() {
   if (currentAudio) { currentAudio.pause(); currentAudio = null; }
   if ("speechSynthesis" in window) speechSynthesis.cancel();
 }
-// Chrome / iOS Safari race: speechSynthesis.cancel() runs asynchronously and can swallow a
-// speak() issued in the SAME tick — which truncates the word. Cancel, then speak on the next
-// tick so cancel only kills the PREVIOUS audio, never the fresh utterance.
-function sayUtterance(u) {
-  try { speechSynthesis.cancel(); } catch (e) {}
-  setTimeout(() => { try { speechSynthesis.speak(u); } catch (e) {} }, 70);
-}
 function speakFallback() {
   // Synthesized Tagalog voice removed per request — only the real (cached) Google audio is used.
   // When it isn't available, reveal the word as text instead of a robotic voice.
