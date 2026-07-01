@@ -1826,6 +1826,7 @@ function speak(word) {
     if (currentAudio) { currentAudio.pause(); currentAudio = null; }
     const url = "https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=tl&q=" + encodeURIComponent(word);
     const a = new Audio(url);
+    a.referrerPolicy = "no-referrer"; // per-request: Google 404s if a github.io referrer is sent
     currentAudio = a;
     const onFail = err => {
       if (err && err.name === "NotAllowedError") return; // autoplay block, not a real failure
