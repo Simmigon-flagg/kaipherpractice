@@ -1803,10 +1803,23 @@ function stopSpeech() {
   if (currentAudio) { currentAudio.pause(); currentAudio = null; }
   if ("speechSynthesis" in window) speechSynthesis.cancel();
 }
-function speakFallback() {
-  // Synthesized Tagalog voice removed per request — only the real (cached) Google audio is used.
-  // When it isn't available, reveal the word as text instead of a robotic voice.
-  showPrompt(true);
+// Chrome / iOS Safari race: speechSynthesis.cancel() runs asynchronously and can swallow a
+// speak() issued in the SAME tick — which truncates the word. Cancel, then speak on the next
+// tick so cancel only kills the PREVIOUS audio, never the fresh utterance.
+function sayUtterance(u) {
+  try { speechSynthesis.cancel(); } catch (e) {}
+  setTimeout(() => { try { speechSynthesis.speak(u); } catch (e) {} }, 70);
+}
+function speakFallback(word) {
+  if ("speechSynthesis" in window) {
+    const u = new SpeechSynthesisUtterance(word);
+    if (filVoice) { u.voice = filVoice; u.lang = filVoice.lang; }
+    else { u.lang = "fil-PH"; } // no installed Filipino voice — still ask the OS engine, don't go silent
+    u.rate = 0.85;
+    sayUtterance(u);
+  } else {
+    showPrompt(true);
+  }
 }
 function speak(word) {
   if (gttsOk) {
@@ -1825,12 +1838,21 @@ function speak(word) {
     a.onerror = () => onFail({});
     return;
   }
-  // No synthesized Tagalog fallback — if Google audio isn't available, show the word as text.
+  if (filVoice) {
+    const u = new SpeechSynthesisUtterance(word);
+    u.voice = filVoice; u.lang = filVoice.lang; u.rate = 0.85;
+    sayUtterance(u);
+    return;
+  }
   showPrompt(true);
 }
-function speakEnglish() {
-  // English (non-Google) voice removed per request. The app speaks ONLY the real Google
-  // Tagalog audio. English meanings are shown as text, not spoken.
+function speakEnglish(text) {
+  const u = new SpeechSynthesisUtterance(text.replace(/\s*\/\s*/g, ", ").replace(/\(.*?\)/g, ""));
+  if (enVoice) u.voice = enVoice;
+  u.lang = "en-US";
+  u.rate = 1.0;
+  u.pitch = 1.3; // lighter / younger
+  sayUtterance(u);
 }
 
 // ---------- SRS: Leitner boxes (items = forward "tl" and reverse "rev:tl") ----------
@@ -2834,11 +2856,11 @@ document.getElementById("phraseSelect").value = phrasesOn() ? "on" : "off";
 
 </script>
 <script>
-  // Register the TTS-caching service worker so the REAL Google audio is saved after first play.
+  // The TTS service worker broke Google audio playback on iOS (media range requests), so it was
+  // removed. Actively unregister any copy still installed on this device and clear its cache.
   if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
-      navigator.serviceWorker.register("sw.js").catch(e => console.warn("SW register failed:", e));
-    });
+    navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister())).catch(() => {});
+    if (window.caches) caches.keys().then(ks => ks.forEach(k => caches.delete(k))).catch(() => {});
   }
 </script>
 </body>
