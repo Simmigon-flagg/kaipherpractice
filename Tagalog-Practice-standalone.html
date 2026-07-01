@@ -1486,6 +1486,15 @@ function unlockAudio() {
       src.start(0);
     }
   } catch (e) {}
+  // Owner-approved timing fix (2026-07-01): bless the reusable TTS <audio> element during this
+  // gesture so new words can auto-play on iOS. Uses a tiny silent clip; does not change the voice.
+  try {
+    if (typeof ttsAudio !== "undefined" && !ttsAudio._blessed) {
+      ttsAudio._blessed = true;
+      ttsAudio.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAgD4AAAB9AAACABAAZGF0YQAAAAA=";
+      ttsAudio.play().then(() => ttsAudio.pause()).catch(() => {});
+    }
+  } catch (e) {}
   // Keep the listeners attached (cheap no-op once running) so the context is guaranteed live
   // by the time the first correct answer fires its chime.
 }
@@ -1805,6 +1814,10 @@ speechSynthesis.onvoiceschanged = pickVoice;
 pickVoice();
 
 let currentAudio = null;
+// Owner-approved TIMING fix (2026-07-01): ONE reusable audio element. Once "blessed" by the first
+// user tap, iOS lets it auto-play each new word on arrival. Voice/URL is UNCHANGED — do not alter.
+const ttsAudio = new Audio();
+ttsAudio.referrerPolicy = "no-referrer";
 let gttsFails = 0; // consecutive Google-TTS failures; only give up after several in a row
 // Delayed reinforcement speech (the "+800ms / +1800ms" replays after a correct answer) used
 // raw setTimeouts that were never cancelled — so a leftover replay could fire as the NEXT word
@@ -1836,18 +1849,20 @@ function speakFallback(word) {
 }
 function speak(word) {
   if (gttsOk) {
-    if (currentAudio) { currentAudio.pause(); currentAudio = null; }
     const url = "https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=tl&q=" + encodeURIComponent(word);
-    const a = new Audio(url);
-    a.referrerPolicy = "no-referrer"; // per-request: Google 404s if a github.io referrer is sent
+    // Reuse the single blessed element so the CURRENT word auto-plays on arrival (iOS blocks a
+    // fresh `new Audio()` each time). Same Google tl voice — timing only.
+    const a = ttsAudio;
+    a.pause();
+    a.src = url;
     currentAudio = a;
     const onFail = err => {
-      if (err && err.name === "NotAllowedError") return; // autoplay block, not a real failure
+      if (err && err.name === "NotAllowedError") return; // autoplay block before first tap — not a real failure
       // A transient Google block/rate-limit shouldn't kill audio for the whole session:
       // fall back audibly for THIS word, and keep trying Google on the next one.
       speakFallback(word);
     };
-    a.addEventListener("playing", () => { gttsFails = 0; }); // success resets the counter
+    a.onplaying = () => { gttsFails = 0; }; // success resets the counter
     a.play().then(() => { gttsFails = 0; }).catch(onFail);
     a.onerror = () => onFail({});
     return;
