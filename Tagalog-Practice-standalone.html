@@ -2724,6 +2724,7 @@ document.getElementById("phraseSelect").value = phrasesOn() ? "on" : "off";
   let elapsedMs = +(localStorage.getItem(K_ELAPSED) || 0);
   let lastTick  = Date.now();
   let lastActivity = Date.now();
+  let wasActive = true; // to detect the moment we auto-pause, so we can rewind the leaked grace
   let alarming = false, alarmTimer = null;
 
   // any real interaction counts as "still practicing"
@@ -2802,10 +2803,20 @@ document.getElementById("phraseSelect").value = phrasesOn() ? "on" : "off";
     const now = Date.now();
     const dt = now - lastTick;
     lastTick = now;
-    if (dt > 0 && dt < MAX_DT && isActive()) {
+    const active = isActive();
+    if (dt > 0 && dt < MAX_DT && active) {
       totalMs += dt;
       if (remaining() > 0) elapsedMs += dt;
     }
+    // The moment we auto-pause (were active, now idle), rewind the ~IDLE_MS of grace that got
+    // counted after you actually stopped tapping — that wasn't real practice. So when you come
+    // back, the clock already reflects when you truly left.
+    if (wasActive && !active) {
+      totalMs   = Math.max(0, totalMs   - IDLE_MS);
+      elapsedMs = Math.max(0, elapsedMs - IDLE_MS);
+      save();
+    }
+    wasActive = active;
     if (remaining() <= 0 && !alarming) fireAlarm();
     render();
   }
