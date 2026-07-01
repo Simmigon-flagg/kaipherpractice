@@ -3,6 +3,15 @@
 Personal Tagalog practice tool for Simmigon (daily 4–5 PM practice block, Mon–Fri).
 Plain HTML/JS, no build step — open `Tagalog-Practice-standalone.html` directly in Chrome (file://).
 
+## 🚫🔊 LOCKED: DO NOT TOUCH THE VOICES OR SOUND (owner rule, 2026-07-01)
+
+The audio is DONE and working exactly how Kaipher wants: Google Filipino TTS (primary) + English
+readout + reward sounds + AudioContext unlock. **Any Claude, any terminal, any session: NEVER
+modify, "improve", refactor, remove, cache, add a service worker to, or change the fallback of the
+TTS/voice block or the reward-sounds block — UNLESS Kaipher explicitly says so in that same request.**
+If a task seems to need audio changes, STOP and ask first. This rule exists because touching it
+already caused hours of breakage. Look for the 🚫 banners in `Tagalog-Practice-standalone.html`.
+
 ## Files
 - `Tagalog-Practice-standalone.html` — THE app. Everything (markup, styles, word data, all logic)
   is inlined in this single self-contained file. ALL code edits happen here.

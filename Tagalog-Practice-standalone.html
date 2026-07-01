@@ -1458,6 +1458,11 @@ function bumpStreak() {
   return s;
 }
 
+// ===========================================================================================
+// 🚫🔔 DO NOT TOUCH THE SOUND. LOCKED BY OWNER (Kaipher) 2026-07-01.
+// Reward sounds + AudioContext unlock are WORKING. Any Claude / terminal / session: do NOT
+// modify this block or the TTS/voice block unless Kaipher EXPLICITLY asks to change sound/voices.
+// ===========================================================================================
 // ---------- audio: reward sounds ----------
 let actx;
 function ctx() {
@@ -1765,6 +1770,14 @@ function correctSound() {
   customAudioEl.play().catch(() => fallback());
 }
 
+// ===========================================================================================
+// 🚫🔊 DO NOT TOUCH THE VOICES / SOUND. LOCKED BY OWNER (Kaipher) 2026-07-01.
+// The voices (Google Filipino TTS + English readout) and the reward sounds are WORKING and
+// TUNED EXACTLY how the owner wants. ANY Claude / any terminal / any session: do NOT modify,
+// "improve", refactor, remove, cache, or fall-back-swap anything in this TTS block or the
+// reward-sounds block UNLESS Kaipher EXPLICITLY says to change the voices/sound in that request.
+// This rule cost hours of breakage. Leave it alone.
+// ===========================================================================================
 // ---------- TTS ----------
 // Tagalog — primary: Google Translate TTS. Fallback: installed Filipino voice. Last resort: show text.
 // English — light, young female voice where available, with raised pitch.
