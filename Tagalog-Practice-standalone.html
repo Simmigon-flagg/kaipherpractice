@@ -166,6 +166,14 @@
     width: 30px; height: 30px; border-radius: 50%; font-size: .9rem;
   }
   #studyTimer .tt-btn:hover { background: var(--accent); }
+  /* Appears when the daily goal is hit — offers an endless, no-stakes review loop. */
+  #extraPracticeBtn {
+    position: fixed; left: 50%; transform: translateX(-50%); bottom: 16px; z-index: 60;
+    background: linear-gradient(135deg, #3ecf6e, #2fae5a); color: #08230f; border: none;
+    border-radius: 999px; padding: 13px 20px; font-size: 1rem; font-weight: 700; cursor: pointer;
+    max-width: 92vw; box-shadow: 0 6px 22px rgba(62,207,110,.5); animation: ttflash 1.6s ease-in-out 3;
+  }
+  #extraPracticeBtn:active { transform: translateX(-50%) scale(.98); }
 
   /* ---------- Phones (iPhone 14 Plus/Pro Max ~430px and smaller) ---------- */
   /* Without this, desktop-sized fonts/padding make the quiz card taller than the
@@ -217,6 +225,7 @@
   </div>
   <h1>Kaipher Practice</h1>
   <div class="sub" id="subTitle">Pick a category to start</div>
+  <button id="extraPracticeBtn" style="display:none">🎉 Hour done — keep going? Easy review of words you know ♾️</button>
 
   <!-- HOME -->
   <div id="homeScreen">
@@ -2205,7 +2214,9 @@ function startQuiz(name, wordList, mode) {
   sessionMode = mode || "normal";
   sessionDone = 0; normalDoneShown = false;
   // session goal: review/trouble = finite set; normal = today's due + planned new
-  if (sessionMode === "reviewDue" || sessionMode === "trouble") {
+  if (sessionMode === "extra") {
+    sessionGoal = 0; // endless cool-down review — no session bar, never "done"
+  } else if (sessionMode === "reviewDue" || sessionMode === "trouble") {
     sessionGoal = dueItems(words).length || quizItems(words).length;
   } else {
     const items = quizItems(words);
@@ -2301,7 +2312,7 @@ function nextQuestion() {
   }
   answered = false;
   document.getElementById("phraseBox").innerHTML = "";
-  current = speedMode
+  current = (speedMode || sessionMode === "extra")
     ? (() => { const [tl, en] = words[Math.floor(Math.random() * words.length)]; return { tl, en, key: tl, rev: false }; })()
     : pickItem();
   if (!current) return finishSession(sessionMode === "normal"); // nothing left to serve
@@ -2453,9 +2464,12 @@ function finishAnswer(ok) {
     }
   } else {
     buzz();
-    p.miss++; streak = 0; d.wrong++;
-    d.trouble[tl] = (d.trouble[tl] || 0) + 1;
-    srsWrong(p);
+    streak = 0;
+    if (sessionMode !== "extra") {   // extra practice = pure review; a miss never demotes/flags a known word
+      p.miss++; d.wrong++;
+      d.trouble[tl] = (d.trouble[tl] || 0) + 1;
+      srsWrong(p);
+    }
     if (judge) {
       v.textContent = (current.good ? "❌ Actually it DOES make sense." : "❌ Actually it does NOT make sense.");
       v.className = "verdict bad";
@@ -2503,6 +2517,17 @@ document.getElementById("peekBtn").onclick = () => showPrompt(true);
 document.getElementById("skipBtn").onclick = nextQuestion;
 document.getElementById("homeBtn").onclick = goHome;
 document.getElementById("startHereBtn").onclick = smartStart;
+// Endless, no-stakes cool-down: only words you already know, misses never demote them.
+function startExtraPractice() {
+  const pool = knownWords();
+  if (pool.length < 4) {
+    alert("Extra practice unlocks once you've mastered at least 4 words (3 correct each). You have " + pool.length + ".");
+    return;
+  }
+  document.getElementById("extraPracticeBtn").style.display = "none";
+  startQuiz("♾️ Extra practice — words you know", pool, "extra");
+}
+document.getElementById("extraPracticeBtn").onclick = startExtraPractice;
 document.getElementById("settingsBtn").onclick = () => {
   const b = document.getElementById("settingsBox");
   b.style.display = b.style.display === "block" ? "none" : "block";
@@ -2742,6 +2767,8 @@ document.getElementById("phraseSelect").value = phrasesOn() ? "on" : "off";
       if (++n < 8) alarmTimer = setTimeout(ring, 700);
     };
     ring();
+    const xb = document.getElementById("extraPracticeBtn");
+    if (xb) xb.style.display = "block"; // offer the endless known-words review loop
     setTimeout(() => { if (alarming) alert("⏰ Practice goal reached — " + goalMin + " minutes of focused practice. Magaling!"); }, 300);
   }
   function stopAlarm() {
