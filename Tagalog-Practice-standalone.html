@@ -1440,10 +1440,22 @@ function ctx() {
 // muted (only the <audio>-based voice plays) until it's resumed inside a user gesture.
 // Resume on the first tap/click anywhere so "correct answer" sound works on iPhone.
 function unlockAudio() {
-  try { const c = ctx(); if (c.state === "suspended") c.resume(); } catch (e) {}
-  document.removeEventListener("touchend", unlockAudio);
-  document.removeEventListener("click", unlockAudio);
+  try {
+    const c = ctx();
+    if (c.state !== "running") {
+      c.resume();
+      // iOS only TRULY unlocks Web Audio after a buffer actually plays inside a user gesture —
+      // resume() alone isn't enough, which is why the reward chime stayed silent.
+      const src = c.createBufferSource();
+      src.buffer = c.createBuffer(1, 1, 22050);
+      src.connect(c.destination);
+      src.start(0);
+    }
+  } catch (e) {}
+  // Keep the listeners attached (cheap no-op once running) so the context is guaranteed live
+  // by the time the first correct answer fires its chime.
 }
+document.addEventListener("touchstart", unlockAudio, { passive: true });
 document.addEventListener("touchend", unlockAudio, { passive: true });
 document.addEventListener("click", unlockAudio);
 function chimeNote(freq, dt, dur, vol) {
@@ -1769,16 +1781,10 @@ function sayUtterance(u) {
   try { speechSynthesis.cancel(); } catch (e) {}
   setTimeout(() => { try { speechSynthesis.speak(u); } catch (e) {} }, 70);
 }
-function speakFallback(word) {
-  if ("speechSynthesis" in window) {
-    const u = new SpeechSynthesisUtterance(word);
-    if (filVoice) { u.voice = filVoice; u.lang = filVoice.lang; }
-    else { u.lang = "fil-PH"; } // no installed Filipino voice — still ask the OS engine, don't go silent
-    u.rate = 0.85;
-    sayUtterance(u);
-  } else {
-    showPrompt(true);
-  }
+function speakFallback() {
+  // Synthesized Tagalog voice removed per request — only the real (cached) Google audio is used.
+  // When it isn't available, reveal the word as text instead of a robotic voice.
+  showPrompt(true);
 }
 function speak(word) {
   if (gttsOk) {
@@ -1797,12 +1803,7 @@ function speak(word) {
     a.onerror = () => onFail({});
     return;
   }
-  if (filVoice) {
-    const u = new SpeechSynthesisUtterance(word);
-    u.voice = filVoice; u.lang = filVoice.lang; u.rate = 0.85;
-    sayUtterance(u);
-    return;
-  }
+  // No synthesized Tagalog fallback — if Google audio isn't available, show the word as text.
   showPrompt(true);
 }
 function speakEnglish(text) {
