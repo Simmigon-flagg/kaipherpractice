@@ -184,7 +184,7 @@
   /* Without this, desktop-sized fonts/padding make the quiz card taller than the
      screen, so the lower choices and the replay button get cut off. Shrink the
      vertical rhythm so the whole card fits on one phone screen. */
-  @media (max-width: 480px) {
+  @media (max-width: 480px), (max-height: 520px) {
     body { padding: 12px 12px; font-size: 1.05rem; }
     .stats { gap: 14px; font-size: 1rem; margin-bottom: 10px; }
     #quizScreen .quiz-head { margin-bottom: 10px; }
@@ -218,6 +218,28 @@
     .cat-card { padding: 14px 10px; }
     .cat-card .emoji { font-size: 2rem; }
     .cat-card .name { font-size: 1.1rem; }
+  }
+
+  /* ---------- Landscape / short screens (sideways phone) ----------
+     Sideways the phone is WIDE but very SHORT, so the header + fixed timer used to eat the whole
+     screen and push the quiz card off the bottom. Collapse the header vertically so the word +
+     choices + Play are visible without scrolling. */
+  @media (max-height: 520px) {
+    body { padding: 8px 12px; }
+    #studyTimer { font-size: .72rem; padding: 4px 8px; top: 6px; right: 6px; }
+    h1 { font-size: 1.2rem; padding-right: 116px; margin: 0; }
+    .sub { display: none; }                 /* drop "Listen → answer → earn the reward" sideways */
+    .stats { margin-bottom: 6px; font-size: .95rem; }
+    #quizScreen .quiz-head { margin-bottom: 6px; }
+    #sessBar { margin-bottom: 6px; }
+    .card { padding: 10px 14px; }
+    .word-area { min-height: 40px; margin-bottom: 6px; }
+    .tl-word { font-size: 1.8rem; }
+    .play-btn { padding: 8px 18px; margin: 8px auto 0; }
+    .choices { grid-template-columns: 1fr 1fr; gap: 6px; }  /* 2 columns to use the extra width */
+    .choice { padding: 10px; font-size: 1.05rem; }
+    .verdict { min-height: 20px; margin-top: 6px; }
+    .row { margin-top: 8px; }
   }
 </style>
 </head>
