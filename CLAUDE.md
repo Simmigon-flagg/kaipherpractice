@@ -12,6 +12,14 @@ TTS/voice block or the reward-sounds block — UNLESS Kaipher explicitly says so
 If a task seems to need audio changes, STOP and ask first. This rule exists because touching it
 already caused hours of breakage. Look for the 🚫 banners in `Tagalog-Practice-standalone.html`.
 
+## 📋 ACTIVE ROADMAP — read `roadmap/LEARNING-FEATURES.md` FIRST
+
+There is an ordered to-do sheet of learning features at `roadmap/LEARNING-FEATURES.md`. **Every session:
+open it before starting feature work.** Its workflow is MANDATORY:
+- **One feature at a time**, each on its **own branch** (branch names are in the sheet). Never build on `main`.
+- After building ONE feature, **STOP and wait** for Kaipher to test AND merge before starting the next.
+- Keep the sheet's Status column current. This pointer stays until every row is ✅ merged.
+
 ## Files
 - `Tagalog-Practice-standalone.html` — THE app. Everything (markup, styles, word data, all logic)
   is inlined in this single self-contained file. ALL code edits happen here.
