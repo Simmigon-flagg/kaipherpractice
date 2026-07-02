@@ -12,17 +12,19 @@
 ## Status legend
 `⬜ not started` · `🔵 in progress (on its branch)` · `🧪 awaiting Kaipher's test` · `🟠 testing feedback` · `✅ tested + merged`
 
-## Queue (strongest-learning-impact first — reorder if Kaipher wants)
+## Queue
+
+**BUILD ORDER (Kaipher, 2026-07-02): #0 → #1 → #6 → #2 → #3 → #4 → #5.** Table is in build order; the `#` column is the stable feature ID.
 
 | # | Feature | What it adds | Branch | Status |
 |---|---------|--------------|--------|--------|
 | 0 | **Playback speed control** | Slow/Normal/Fast/Faster for the Tagalog audio | `new-feature` | 🧪 awaiting test + merge |
 | 1 | **Recall-before-recognition** | Hide the choices ~3s on *seen* words (with a "show now" tap) so you recall before you recognize. Strengthens the #1 technique (active recall). | `feat/recall-before-recognition` | ⬜ |
+| 6 | **Cross-deck interleaving** | Mix words + sentences (and categories) in one session instead of separate decks — so you see sentences using learned words during "Start Today's Practice." | `feat/interleaving` | ⬜ ← **NEXT after #1** |
 | 2 | **Dual coding (images)** | Pair a small picture with each word so meaning is stored visually + verbally. Biggest untapped gap. | `feat/dual-coding-images` | ⬜ |
 | 3 | **Metacognition (confidence rating)** | After answering, tap how sure you were; feed it into the SRS scheduling. | `feat/confidence-rating` | ⬜ |
 | 4 | **Elaboration / self-explanation** | Prompt a quick "why / how it connects" or show a usage note to deepen encoding. | `feat/elaboration` | ⬜ |
 | 5 | **Mnemonics / keyword hooks** | Optional memory hook per word (keyword method). | `feat/mnemonics` | ⬜ |
-| 6 | **Cross-deck interleaving** | Mix words + sentences (and categories) in one session instead of separate decks. | `feat/interleaving` | ⬜ |
 
 ## Notes
 - These came from the gap analysis 2026-07-02: the app already uses active recall, spaced repetition, distributed practice, production, listening, context, grammar-judgment, fluency, interleaving-within-deck, feedback, and gamification. The list above is what it does NOT yet use.
