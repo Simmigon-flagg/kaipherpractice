@@ -28,6 +28,32 @@
   /* No app title (redundant). The subtitle is the page heading; top margin keeps it clear of the
      fixed study-timer pill in the top-right so the header never looks cluttered/overlapping. */
   .sub { color: var(--text); font-size: 1.4rem; font-weight: 600; margin: 30px 0 20px; }
+
+  /* ➕ Add tab — a simple form for adding your own words/sentences to the test bank */
+  #addPanel { display: none; margin-top: 8px; text-align: left; }
+  #homeScreen.adding > *:not(.deck-toggle):not(#addPanel) { display: none !important; }
+  #homeScreen.adding #addPanel { display: block; }
+  .add-title { font-size: 1.3rem; font-weight: 700; margin-bottom: 12px; }
+  .add-type { display: flex; gap: 8px; margin-bottom: 12px; }
+  .add-type button { flex: 1; background: #2e3342; color: var(--text); border: 2px solid transparent;
+    border-radius: 10px; padding: 12px; font-size: 1.1rem; cursor: pointer; }
+  .add-type button.active { border-color: var(--accent); background: var(--accent); color: #fff; }
+  #addTL, #addEN { width: 100%; box-sizing: border-box; background: #2e3342; color: var(--text);
+    border: 2px solid #3a4054; border-radius: 12px; padding: 14px; font-size: 1.2rem; margin-bottom: 10px; }
+  #addTL:focus, #addEN:focus { outline: none; border-color: var(--accent); }
+  .add-hint { color: var(--muted); font-size: .95rem; margin-bottom: 12px; }
+  #addSaveBtn { width: 100%; background: var(--good); color: #08230f; border: none; border-radius: 12px;
+    padding: 15px; font-size: 1.2rem; font-weight: 700; cursor: pointer; }
+  #addSaveBtn:active { transform: scale(.99); }
+  #customList { margin-top: 18px; display: flex; flex-direction: column; gap: 8px; }
+  .custom-item { display: flex; align-items: center; gap: 10px; background: var(--card);
+    border: 1px solid #3a4054; border-radius: 10px; padding: 10px 12px; }
+  .custom-item .ci-txt { flex: 1; min-width: 0; }
+  .custom-item .ci-tl { font-weight: 600; word-break: break-word; }
+  .custom-item .ci-en { color: var(--muted); font-size: .95rem; word-break: break-word; }
+  .custom-item .ci-tag { font-size: .8rem; color: var(--muted); white-space: nowrap; }
+  .custom-item .ci-del { background: none; border: none; color: var(--bad); font-size: 1.3rem; cursor: pointer; padding: 4px 8px; }
+  .custom-empty { color: var(--muted); text-align: center; padding: 12px; }
   .stats { display: flex; gap: 22px; margin-bottom: 18px; font-size: 1.2rem; color: var(--muted); }
   .stats b { color: var(--text); }
 
@@ -278,6 +304,21 @@
       <button id="deckSentences">💬 Sentences</button>
       <button id="deckConj">🧩 Conjugation</button>
       <button id="deckJudge">🤔 Makes Sense?</button>
+      <button id="deckAdd">➕ Add</button>
+    </div>
+    <!-- ➕ Add tab: anyone (e.g. a native speaker) can add their own words/sentences — and alternate
+         ways to say something — straight into the test bank. Shown only when the Add tab is active. -->
+    <div id="addPanel">
+      <div class="add-title">➕ Add to your test bank</div>
+      <div class="add-type">
+        <button id="addTypeWord" class="active" type="button">📚 Word</button>
+        <button id="addTypeSentence" type="button">💬 Sentence</button>
+      </div>
+      <input type="text" id="addTL" placeholder="Tagalog (e.g. salamat)" autocomplete="off" autocapitalize="off">
+      <input type="text" id="addEN" placeholder="English (e.g. thanks)" autocomplete="off">
+      <div class="add-hint">Tip: add another way to say it with a slash — e.g. <b>salamat / salamat po</b> — and both count as correct.</div>
+      <button id="addSaveBtn" type="button">➕ Add to bank</button>
+      <div id="customList"></div>
     </div>
     <div class="learned-banner" id="learnedBanner"></div>
     <button id="startHereBtn">▶ Start Today’s Practice</button>
@@ -1420,10 +1461,11 @@ const PHRASES = {
 // Word data lives in practicetag.js (WORD_CATEGORIES); context phrases in phrases.js (PHRASES).
 
 // ---------- data ----------
-const LS = { custom: "tq_custom", prog: "tq_progress", best: "tq_best" };
+const LS = { custom: "tq_custom", customSent: "tq_customSent", prog: "tq_progress", best: "tq_best" };
 const DAILY_KEY = "tq_daily", STREAK_KEY = "tq_streak", NEWCAP_KEY = "tq_newCap";
 const REV_KEY = "tq_reverse", PHRASE_KEY = "tq_phrases", DECK_KEY = "tq_deck";
 let customWords = JSON.parse(localStorage.getItem(LS.custom) || "[]");
+let customSentences = JSON.parse(localStorage.getItem(LS.customSent) || "[]"); // user-added sentences/phrases
 const PHRASE_DATA = (typeof PHRASES !== "undefined") ? PHRASES : {};
 
 // ---------- deck: words vs sentences ----------
@@ -1444,6 +1486,7 @@ function allWords() {
   const out = [];
   Object.values(CATS).forEach(c => out.push(...c.words));
   if (deckMode === "words") out.push(...customWords);
+  if (deckMode === "sentences") out.push(...customSentences);
   return out;
 }
 // Map each word -> its group (category) so multiple-choice decoys can be drawn
@@ -2314,6 +2357,7 @@ function renderHome() {
     makeCard(label, c.emoji, c.words, false);
   });
   if (!inSentences() && customWords.length) makeCard("My Words", "✍️", customWords, false);
+  if (inSentences() && customSentences.length) makeCard("My Sentences", "✍️", customSentences, false);
 }
 function startQuiz(name, wordList, mode) {
   currentCat = name;
@@ -2393,6 +2437,7 @@ function finishSession(canContinue) {
 }
 function goHome() {
   clearNextCountdown();
+  if (typeof hideAddPanel === "function") hideAddPanel();
   if (currentAudio) { currentAudio.pause(); currentAudio = null; }
   speechSynthesis.cancel();
   speedMode = false;
@@ -2740,10 +2785,80 @@ document.getElementById("deleteSoundBtn").onclick = async () => {
 document.getElementById("newCapSelect").onchange = e => { localStorage.setItem(NEWCAP_KEY, e.target.value); renderHome(); };
 document.getElementById("revSelect").onchange = e => { localStorage.setItem(REV_KEY, e.target.value); renderHome(); };
 document.getElementById("phraseSelect").onchange = e => { localStorage.setItem(PHRASE_KEY, e.target.value); };
-document.getElementById("deckWords").onclick = () => setDeck("words");
-document.getElementById("deckSentences").onclick = () => setDeck("sentences");
-document.getElementById("deckConj").onclick = () => setDeck("conj");
-document.getElementById("deckJudge").onclick = () => setDeck("judge");
+document.getElementById("deckWords").onclick = () => { hideAddPanel(); setDeck("words"); };
+document.getElementById("deckSentences").onclick = () => { hideAddPanel(); setDeck("sentences"); };
+document.getElementById("deckConj").onclick = () => { hideAddPanel(); setDeck("conj"); };
+document.getElementById("deckJudge").onclick = () => { hideAddPanel(); setDeck("judge"); };
+
+// ---------- ➕ Add tab: add your own words/sentences to the test bank ----------
+let addType = "word"; // "word" -> customWords (Words deck) | "sentence" -> customSentences (Sentences deck)
+function hideAddPanel() {
+  document.getElementById("homeScreen").classList.remove("adding");
+  document.getElementById("deckAdd").classList.remove("active");
+  updateDeckToggle(); // re-light the current deck's pill (setDeck early-returns if the deck is unchanged)
+}
+function showAddPanel() {
+  document.getElementById("homeScreen").classList.add("adding");
+  // the real decks each own an "active" pill; light up Add and clear the others
+  ["deckWords", "deckSentences", "deckConj", "deckJudge"].forEach(id => document.getElementById(id).classList.remove("active"));
+  document.getElementById("deckAdd").classList.add("active");
+  renderCustomList();
+}
+function setAddType(t) {
+  addType = t;
+  document.getElementById("addTypeWord").classList.toggle("active", t === "word");
+  document.getElementById("addTypeSentence").classList.toggle("active", t === "sentence");
+  document.getElementById("addTL").placeholder = t === "sentence" ? "Tagalog (e.g. Kumusta ka?)" : "Tagalog (e.g. salamat)";
+  document.getElementById("addEN").placeholder = t === "sentence" ? "English (e.g. How are you?)" : "English (e.g. thanks)";
+}
+function customBank() { return addType === "sentence" ? customSentences : customWords; }
+function saveBank(arr, type) { localStorage.setItem(type === "sentence" ? LS.customSent : LS.custom, JSON.stringify(arr)); }
+function addCustomEntry() {
+  const tl = document.getElementById("addTL").value.trim();
+  const en = document.getElementById("addEN").value.trim();
+  if (!tl || !en) { alert("Enter both the Tagalog and the English."); return; }
+  if (allWords().some(w => (w[0] || "").toLowerCase() === tl.toLowerCase()) ||
+      customWords.concat(customSentences).some(w => (w[0] || "").toLowerCase() === tl.toLowerCase())) {
+    alert('"' + tl + '" is already in the bank.'); return;
+  }
+  const arr = customBank();
+  arr.push([tl, en]);
+  saveBank(arr, addType);
+  document.getElementById("addTL").value = "";
+  document.getElementById("addEN").value = "";
+  document.getElementById("addTL").focus();
+  renderCustomList();
+  flagNewFeature("Added to your " + (addType === "sentence" ? "Sentences" : "Words") + " bank");
+}
+function deleteCustom(type, idx) {
+  const arr = type === "sentence" ? customSentences : customWords;
+  if (idx < 0 || idx >= arr.length) return;
+  arr.splice(idx, 1);
+  saveBank(arr, type);
+  renderCustomList();
+}
+function renderCustomList() {
+  const box = document.getElementById("customList");
+  const rows = [
+    ...customSentences.map((w, i) => ({ w, i, type: "sentence", tag: "💬 sentence" })),
+    ...customWords.map((w, i) => ({ w, i, type: "word", tag: "📚 word" })),
+  ];
+  if (!rows.length) { box.innerHTML = '<div class="custom-empty">Nothing added yet. Your entries show up here.</div>'; return; }
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  box.innerHTML = rows.map(r =>
+    '<div class="custom-item">' +
+      '<div class="ci-txt"><div class="ci-tl">' + esc(r.w[0]) + '</div><div class="ci-en">' + esc(r.w[1]) + '</div></div>' +
+      '<span class="ci-tag">' + r.tag + '</span>' +
+      '<button class="ci-del" type="button" data-type="' + r.type + '" data-idx="' + r.i + '" title="Remove">✕</button>' +
+    '</div>').join("");
+  box.querySelectorAll(".ci-del").forEach(btn =>
+    btn.onclick = () => deleteCustom(btn.dataset.type, +btn.dataset.idx));
+}
+document.getElementById("deckAdd").onclick = showAddPanel;
+document.getElementById("addTypeWord").onclick = () => setAddType("word");
+document.getElementById("addTypeSentence").onclick = () => setAddType("sentence");
+document.getElementById("addSaveBtn").onclick = addCustomEntry;
+document.getElementById("addEN").addEventListener("keydown", e => { if (e.key === "Enter") addCustomEntry(); });
 document.getElementById("importBtn").onclick = () => {
   const b = document.getElementById("importBox");
   b.style.display = b.style.display === "block" ? "none" : "block";
@@ -2767,7 +2882,7 @@ document.getElementById("importSave").onclick = () => {
 };
 
 // ---------- backup: export/import everything ----------
-const BACKUP_LS_KEYS = [LS.custom, LS.prog, LS.best, SPEED_BEST_KEY, SPEED_BEST_KEY_SENT, SOUND_KEY, MODE_KEY,
+const BACKUP_LS_KEYS = [LS.custom, LS.customSent, LS.prog, LS.best, SPEED_BEST_KEY, SPEED_BEST_KEY_SENT, SOUND_KEY, MODE_KEY,
   DAILY_KEY, STREAK_KEY, NEWCAP_KEY, REV_KEY, PHRASE_KEY, DECK_KEY];
 function blobToDataURL(blob) {
   return new Promise((res, rej) => {
@@ -2809,7 +2924,7 @@ document.getElementById("backupFile").onchange = async e => {
 };
 document.getElementById("resetBtn").onclick = () => {
   if (confirm("Reset all progress and custom words?")) {
-    [LS.custom, LS.prog, LS.best, SPEED_BEST_KEY, SPEED_BEST_KEY_SENT, DAILY_KEY, STREAK_KEY].forEach(k => localStorage.removeItem(k));
+    [LS.custom, LS.customSent, LS.prog, LS.best, SPEED_BEST_KEY, SPEED_BEST_KEY_SENT, DAILY_KEY, STREAK_KEY].forEach(k => localStorage.removeItem(k));
     location.reload();
   }
 };
