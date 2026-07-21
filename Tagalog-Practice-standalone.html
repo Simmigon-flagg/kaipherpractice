@@ -364,7 +364,10 @@
       </div>
       <div class="verdict" id="verdict"></div>
       <div id="phraseBox"></div>
-      <button class="play-btn" id="playBtn" style="margin:14px auto 0; display:block">🔊 Play word</button>
+      <div style="display:flex; gap:10px; justify-content:center; margin:14px auto 0; flex-wrap:wrap">
+        <button class="play-btn" id="playBtn" style="margin:0">🔊 Play word</button>
+        <button class="play-btn" id="nextBtn" style="margin:0" title="Go to the next question now (skip the wait)">⏭ Next</button>
+      </div>
     </div>
     <div class="row">
       <button class="ghost-btn" id="peekBtn">👁 Show word</button>
@@ -1864,17 +1867,6 @@ let currentAudio = null;
 // user tap, iOS lets it auto-play each new word on arrival. Voice/URL is UNCHANGED — do not alter.
 const ttsAudio = new Audio();
 ttsAudio.referrerPolicy = "no-referrer";
-// Definitive "the Google TTS clip is busy" flag, driven by the element's OWN events instead of
-// inferring from paused/ended/readyState (which have fragile in-between states while a long clip
-// buffers then starts). busy = true from loadstart, stays true through buffering + playback, and
-// only clears on ended/error/pause. This is what lets "hold until it finishes" never clip a
-// sentence. Requested audio-TIMING fix — the voice and URL are untouched.
-let ttsBusy = false;
-ttsAudio.addEventListener("loadstart", () => { ttsBusy = true; });
-ttsAudio.addEventListener("playing", () => { ttsBusy = true; });
-ttsAudio.addEventListener("ended", () => { ttsBusy = false; });
-ttsAudio.addEventListener("error", () => { ttsBusy = false; });
-ttsAudio.addEventListener("pause", () => { ttsBusy = false; }); // stopSpeech()/next-word pause clears it; a fresh speak() re-arms via loadstart
 // Owner-requested feature #0 (playback SPEED). Scales how fast the Tagalog plays — Google audio via
 // playbackRate (pitch preserved so it doesn't chipmunk), fallback via utterance rate. Voice/URL are
 // UNCHANGED; this only changes speed. Persisted in localStorage.
@@ -2371,6 +2363,7 @@ function smartStart() {
 }
 function finishSession(canContinue) {
   const d = getDaily();
+  clearNextCountdown();
   speechSynthesis.cancel();
   if (currentAudio) { currentAudio.pause(); currentAudio = null; }
   document.getElementById("typedArea").style.display = "none";
@@ -2400,6 +2393,7 @@ function finishSession(canContinue) {
   box.appendChild(home);
 }
 function goHome() {
+  clearNextCountdown();
   if (currentAudio) { currentAudio.pause(); currentAudio = null; }
   speechSynthesis.cancel();
   speedMode = false;
@@ -2485,6 +2479,7 @@ function nextQuestion() {
   }
   document.getElementById("verdict").textContent = "";
   document.getElementById("verdict").className = "verdict";
+  clearNextCountdown(); // cancel any running "Next in Ns" countdown before dealing the new word
   stopSpeech(); // kill any leftover reinforcement audio so it can't clobber this word
   const wd = document.getElementById("wordDisplay");
   if (speedMode) { showPrompt(true); return; } // speed round: read it, no voices
@@ -2543,43 +2538,33 @@ function answer(btn, choice) {
   });
   finishAnswer(choice === target);
 }
-// Owner-approved TIMING fix (2026-07-21): long Tagalog/English readbacks were getting cut off
-// because the next question advanced on a FIXED timer while the reinforcement was still speaking.
-// Gate the advance on the readback actually finishing (the old delay is now just a MINIMUM), with
-// a safety cap so it can never hang. Voices / URLs / fallbacks are UNCHANGED — this only affects
-// WHEN we move on to the next word, never how anything is spoken.
-// "Is anything still trying to speak?" — must catch not just ACTIVELY playing audio but audio that
-// is still BUFFERING (a long Google clip that hasn't started yet) and utterances queued but not yet
-// started (the 70ms cancel gap in sayUtterance). Missing these was why some words still clipped.
-function stillSpeaking() {
-  // synthesis (English meaning / Filipino fallback) still talking or queued...
-  if ("speechSynthesis" in window && (speechSynthesis.speaking || speechSynthesis.pending)) return true;
-  // ...or the Google TTS clip is loading/playing (event-driven flag, not inferred).
-  if (ttsBusy) return true;
-  return false;
+// ---------- advance to next question: a countdown you can SEE and SKIP ----------
+// (The auto-detect "hold until speech ends" approach was unreliable, so it's gone.) Instead we
+// ESTIMATE how long the readback takes — measured Google-TTS Filipino fit: ~0.6s + 0.08s per
+// character, divided by the Tagalog playback speed — and count that down on the Next button.
+// Short sentence? Tap Next and skip the silence. Nothing hidden: just a visible timer you control.
+function estSpeakMs(text, isTagalog) {
+  const base = 600 + (text || "").length * 80;   // fits measured 1.3s (2 words) … 14s (28 words)
+  return isTagalog ? base / ttsSpeed() : base;    // the speed slider only affects the Tagalog voice
 }
-// Advance only after speech has been CONTINUOUSLY quiet for a settle window (bridges buffering gaps
-// and the cancel gap), then wait a short tail so the final syllable isn't clipped. minDelay is the
-// floor; cap stops it hanging forever. This is timing only — voices/URLs/fallbacks are untouched.
-function advanceAfterSpeech(fn, minDelay) {
-  // Real Google-TTS Filipino clips measured 1.3s (2 words) → 14s (28 words); at Slow speed a long
-  // one nears ~17s. The cap only guards against a stuck flag, so keep it well past the longest
-  // real sentence so it can never itself clip a legit readback.
-  const QUIET_MS = 350, TAIL_MS = 250, cap = minDelay + 30000;
-  const startTime = performance.now();
-  let lastBusy = startTime; // last time we saw speech; keeps the settle window honest through gaps
-  function tick() {
-    const now = performance.now();
-    if (stillSpeaking()) lastBusy = now;
-    const elapsed = now - startTime;
-    if (elapsed >= cap) { fn(); return; }                       // safety: never hang
-    if (elapsed >= minDelay && (now - lastBusy) >= QUIET_MS) {   // quiet long enough → finish + tail, then go
-      pendingSpeech.push(setTimeout(fn, TAIL_MS));
-      return;
-    }
-    pendingSpeech.push(setTimeout(tick, 100));
-  }
-  pendingSpeech.push(setTimeout(tick, 300)); // start observing early so we track the whole readback
+let nextTimer = null, nextInterval = null;
+function inQuizNow() { return document.getElementById("quizScreen").style.display !== "none"; }
+function clearNextCountdown() {
+  if (nextTimer) { clearTimeout(nextTimer); nextTimer = null; }
+  if (nextInterval) { clearInterval(nextInterval); nextInterval = null; }
+  const b = document.getElementById("nextBtn");
+  if (b) b.textContent = "⏭ Next";
+}
+function startNextCountdown(ms) {
+  clearNextCountdown();
+  const b = document.getElementById("nextBtn");
+  let remain = Math.max(1, Math.ceil(ms / 1000));
+  if (b) b.textContent = "⏭ Next · " + remain + "s";
+  nextInterval = setInterval(() => {
+    remain--;
+    if (b) b.textContent = remain > 0 ? "⏭ Next · " + remain + "s" : "⏭ Next";
+  }, 1000);
+  nextTimer = setTimeout(() => { clearNextCountdown(); if (inQuizNow() && !speedMode) nextQuestion(); }, ms);
 }
 function finishAnswer(ok) {
   const { tl, en, key, rev } = current;
@@ -2591,7 +2576,7 @@ function finishAnswer(ok) {
   const d = getDaily();
   d.answeredN++;
   if (isNew) d.newSeen++;
-  let extraDelay = 0;
+  let waitMs = 2600; // ms until auto-advance; recomputed per branch to match the readback length
   const judge = !!current.judge;
   if (ok) {
     correctSound();
@@ -2602,18 +2587,19 @@ function finishAnswer(ok) {
       v.textContent = (current.good ? "✅ Yes — it makes sense." : "✅ Right — it does NOT make sense.");
       v.className = "verdict good";
       document.getElementById("phraseBox").innerHTML = '<div class="phrase-en">' + current.expl + '</div>';
-      extraDelay = 1400;
+      waitMs = 2200; // reading the explanation, no spoken readback
     } else {
       v.textContent = "✅ Correct! " + tl + " = " + en;
       v.className = "verdict good";
-      if (rev) laterSpeak(() => speak(tl), 800);        // reinforce the Tagalog you produced
-      else laterSpeak(() => speakEnglish(en), 800);     // say the meaning after the bell
+      // reinforcement starts at +800ms; size the wait to when that readback should finish
+      if (rev) { laterSpeak(() => speak(tl), 800); waitMs = 800 + estSpeakMs(tl, true) + 500; }        // repeat the Tagalog you produced
+      else { laterSpeak(() => speakEnglish(en), 800); waitMs = 800 + estSpeakMs(en, false) + 500; }    // say the English meaning after the bell
       if (!rev && phrasesOn() && PHRASE_DATA[tl]) {
         const [ptl, pen] = PHRASE_DATA[tl];
         document.getElementById("phraseBox").innerHTML =
           '<div class="phrase-tl">' + ptl + '</div><div class="phrase-en">' + pen + '</div>';
         laterSpeak(() => speak(ptl), 1800);
-        extraDelay = 1600;
+        waitMs = Math.max(waitMs, 1800 + estSpeakMs(ptl, true) + 500); // Tagalog context sentence plays after the meaning
       }
     }
   } else {
@@ -2628,7 +2614,7 @@ function finishAnswer(ok) {
       v.textContent = (current.good ? "❌ Actually it DOES make sense." : "❌ Actually it does NOT make sense.");
       v.className = "verdict bad";
       document.getElementById("phraseBox").innerHTML = '<div class="phrase-en">' + current.expl + '</div>';
-      extraDelay = 1800;
+      waitMs = 2800; // reading the explanation on a miss
     } else {
       v.textContent = "❌ " + tl + " = " + en;
       v.className = "verdict bad";
@@ -2640,8 +2626,7 @@ function finishAnswer(ok) {
   sessionDone++;
   updateSessBar();
   updateStats();
-  const inQuiz = () => document.getElementById("quizScreen").style.display !== "none";
-  advanceAfterSpeech(() => { if (inQuiz() && !speedMode) nextQuestion(); }, (ok ? 2400 : 2600) + extraDelay);
+  startNextCountdown(waitMs);
 }
 function updateStats() {
   document.getElementById("score").textContent = score;
@@ -2654,6 +2639,8 @@ document.getElementById("playBtn").onclick = () => {
   if (!current) return;
   if (current.rev) speakEnglish(current.en); else speak(current.tl);
 };
+// Next: jump to the next question immediately (skip the countdown / any leftover silence).
+document.getElementById("nextBtn").onclick = () => { clearNextCountdown(); nextQuestion(); };
 document.getElementById("modeBtn").onclick = () => {
   setAnswerMode(answerMode === "typed" ? "choice" : "typed");
   if (current && !answered && !speedMode) nextQuestion(); // re-deal in the new mode
