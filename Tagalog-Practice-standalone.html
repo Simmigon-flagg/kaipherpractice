@@ -2537,20 +2537,38 @@ function answer(btn, choice) {
 // Gate the advance on the readback actually finishing (the old delay is now just a MINIMUM), with
 // a safety cap so it can never hang. Voices / URLs / fallbacks are UNCHANGED — this only affects
 // WHEN we move on to the next word, never how anything is spoken.
+// "Is anything still trying to speak?" — must catch not just ACTIVELY playing audio but audio that
+// is still BUFFERING (a long Google clip that hasn't started yet) and utterances queued but not yet
+// started (the 70ms cancel gap in sayUtterance). Missing these was why some words still clipped.
 function stillSpeaking() {
-  const gPlaying = currentAudio && !currentAudio.paused && !currentAudio.ended;
-  const sPlaying = ("speechSynthesis" in window) && speechSynthesis.speaking;
-  return !!gPlaying || !!sPlaying;
-}
-function advanceAfterSpeech(fn, minDelay) {
-  const startTime = performance.now();
-  const cap = minDelay + 8000; // never wait more than ~8s past the minimum, so it can't hang
-  function tick() {
-    const elapsed = performance.now() - startTime;
-    if (elapsed >= cap || (elapsed >= minDelay && !stillSpeaking())) { fn(); return; }
-    pendingSpeech.push(setTimeout(tick, 150));
+  if ("speechSynthesis" in window && (speechSynthesis.speaking || speechSynthesis.pending)) return true;
+  const a = currentAudio;
+  if (a && a.src) {
+    if (!a.paused && !a.ended) return true;                                   // actively playing
+    if (!a.ended && a.readyState < 3) return true;                            // src set, still buffering → will play
+    if (!a.ended && a.duration && a.currentTime < a.duration - 0.05) return true; // loaded, not finished
   }
-  pendingSpeech.push(setTimeout(tick, minDelay));
+  return false;
+}
+// Advance only after speech has been CONTINUOUSLY quiet for a settle window (bridges buffering gaps
+// and the cancel gap), then wait a short tail so the final syllable isn't clipped. minDelay is the
+// floor; cap stops it hanging forever. This is timing only — voices/URLs/fallbacks are untouched.
+function advanceAfterSpeech(fn, minDelay) {
+  const QUIET_MS = 350, TAIL_MS = 250, cap = minDelay + 12000;
+  const startTime = performance.now();
+  let lastBusy = startTime; // last time we saw speech; keeps the settle window honest through gaps
+  function tick() {
+    const now = performance.now();
+    if (stillSpeaking()) lastBusy = now;
+    const elapsed = now - startTime;
+    if (elapsed >= cap) { fn(); return; }                       // safety: never hang
+    if (elapsed >= minDelay && (now - lastBusy) >= QUIET_MS) {   // quiet long enough → finish + tail, then go
+      pendingSpeech.push(setTimeout(fn, TAIL_MS));
+      return;
+    }
+    pendingSpeech.push(setTimeout(tick, 100));
+  }
+  pendingSpeech.push(setTimeout(tick, 300)); // start observing early so we track the whole readback
 }
 function finishAnswer(ok) {
   const { tl, en, key, rev } = current;
