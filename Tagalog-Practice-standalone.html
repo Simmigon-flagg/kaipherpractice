@@ -322,7 +322,7 @@
     </div>
     <div class="learned-banner" id="learnedBanner"></div>
     <button id="startHereBtn">▶ Start Today’s Practice</button>
-    <div id="startHereHint">Just click — I’ll pick the right cards for you</div>
+    <div id="startHereHint">One session across all decks — words, sentences, conjugation & more, in the right order. Just tap.</div>
     <div class="cat-grid" id="catGrid"></div>
     <div class="row">
       <button class="ghost-btn" id="importBtn">＋ Add words</button>
@@ -1993,15 +1993,18 @@ const SRS_INTERVALS = [
   7 * 24 * 60 * 60 * 1000    // box 5: 1 week
 ];
 function quizItems(wordList) {
-  // judge deck: each item is [sentence, isGood, explanation]; never reversed
-  if (inJudge()) {
-    return wordList.map(([tl, good, expl]) => ({ tl, good, expl, key: tl, rev: false, judge: true }));
-  }
+  // Item TYPE is detected PER ROW (not from the current deck) so a single guided session can mix
+  // decks: a judge row is [sentence, isGood(boolean), explanation]; everything else is [tl, en].
   const rev = reverseOn();
   const items = [];
-  wordList.forEach(([tl, en]) => {
-    items.push({ tl, en, key: tl, rev: false });
-    if (rev) items.push({ tl, en, key: "rev:" + tl, rev: true });
+  wordList.forEach(row => {
+    if (typeof row[1] === "boolean") {
+      items.push({ tl: row[0], good: row[1], expl: row[2], key: row[0], rev: false, judge: true }); // makes-sense: never reversed
+    } else {
+      const [tl, en] = row;
+      items.push({ tl, en, key: tl, rev: false });
+      if (rev) items.push({ tl, en, key: "rev:" + tl, rev: true });
+    }
   });
   return items;
 }
@@ -2400,9 +2403,27 @@ function startTrouble() {
 }
 // One-tap daily session: no decisions. Runs a normal session over all Words —
 // the engine serves due reviews first, then introduces new words at your pace.
+// ONE guided session across every deck — no manual jumping between Words / Sentences /
+// Conjugation / Makes-Sense. The SRS serves all due reviews first (interleaved across decks),
+// then introduces new cards in order: words → sentences → conjugation → makes-sense. So as you
+// master more, the later material unlocks itself; you just keep hitting Start.
+function guidedDeck() {
+  const rows = [], groups = {};
+  const addCats = cats => Object.entries(cats).forEach(([name, c]) =>
+    c.words.forEach(row => { rows.push(row); if (groups[row[0]] === undefined) groups[row[0]] = name; }));
+  addCats(WORD_CATEGORIES);
+  customWords.forEach(row => { rows.push(row); groups[row[0]] = "My Words"; });
+  addCats(SENTENCE_CATS);
+  customSentences.forEach(row => { rows.push(row); groups[row[0]] = "My Sentences"; });
+  addCats(CONJ_CATS);
+  addCats(JUDGE_CATS);
+  return { rows, groups };
+}
 function smartStart() {
-  if (deckMode !== "words") setDeck("words");
-  startQuiz("▶ Today’s Practice", allWords(), "normal");
+  const g = guidedDeck();
+  GROUP_OF = g.groups; // combined decoy index (in-quiz only); setDeck rebuilds it per-deck afterwards
+  if (typeof flagNewFeature === "function") flagNewFeature("Guided practice — all decks in one");
+  startQuiz("▶ Today’s Practice", g.rows, "normal");
 }
 function finishSession(canContinue) {
   const d = getDaily();
@@ -2471,7 +2492,7 @@ function nextQuestion() {
     : pickItem();
   if (!current) return finishSession(sessionMode === "normal"); // nothing left to serve
   const { tl, en, rev } = current;
-  const judge = inJudge() && !speedMode;
+  const judge = !!current.judge && !speedMode; // per-item, so guided sessions can mix makes-sense with words
   const typed = !judge && answerMode === "typed" && !speedMode;
   document.getElementById("typedArea").style.display = typed ? "flex" : "none";
   document.getElementById("choices").style.display = typed ? "none" : "grid";
@@ -2498,9 +2519,11 @@ function nextQuestion() {
     const grp = GROUP_OF[tl];
     // Prefer decoys from the SAME group (related words) for sensible choices;
     // fall back to the whole deck, then everything, if a group is too small.
-    let pool = words.filter(w => answerOf(w) !== target && GROUP_OF[w[0]] === grp);
-    if (pool.length < 3) pool = words.filter(w => answerOf(w) !== target);
-    if (pool.length < 3) pool = pool.concat(allWords().filter(w => answerOf(w) !== target));
+    // notJudge: never let a makes-sense row (2nd field is a boolean) leak in as a text choice.
+    const notJudge = w => typeof w[1] !== "boolean";
+    let pool = words.filter(w => notJudge(w) && answerOf(w) !== target && GROUP_OF[w[0]] === grp);
+    if (pool.length < 3) pool = words.filter(w => notJudge(w) && answerOf(w) !== target);
+    if (pool.length < 3) pool = pool.concat(allWords().filter(w => notJudge(w) && answerOf(w) !== target));
     const distractors = [];
     while (distractors.length < 3 && pool.length) {
       const i = Math.floor(Math.random() * pool.length);
