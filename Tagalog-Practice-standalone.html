@@ -1864,6 +1864,17 @@ let currentAudio = null;
 // user tap, iOS lets it auto-play each new word on arrival. Voice/URL is UNCHANGED — do not alter.
 const ttsAudio = new Audio();
 ttsAudio.referrerPolicy = "no-referrer";
+// Definitive "the Google TTS clip is busy" flag, driven by the element's OWN events instead of
+// inferring from paused/ended/readyState (which have fragile in-between states while a long clip
+// buffers then starts). busy = true from loadstart, stays true through buffering + playback, and
+// only clears on ended/error/pause. This is what lets "hold until it finishes" never clip a
+// sentence. Requested audio-TIMING fix — the voice and URL are untouched.
+let ttsBusy = false;
+ttsAudio.addEventListener("loadstart", () => { ttsBusy = true; });
+ttsAudio.addEventListener("playing", () => { ttsBusy = true; });
+ttsAudio.addEventListener("ended", () => { ttsBusy = false; });
+ttsAudio.addEventListener("error", () => { ttsBusy = false; });
+ttsAudio.addEventListener("pause", () => { ttsBusy = false; }); // stopSpeech()/next-word pause clears it; a fresh speak() re-arms via loadstart
 // Owner-requested feature #0 (playback SPEED). Scales how fast the Tagalog plays — Google audio via
 // playbackRate (pitch preserved so it doesn't chipmunk), fallback via utterance rate. Voice/URL are
 // UNCHANGED; this only changes speed. Persisted in localStorage.
@@ -2541,13 +2552,10 @@ function answer(btn, choice) {
 // is still BUFFERING (a long Google clip that hasn't started yet) and utterances queued but not yet
 // started (the 70ms cancel gap in sayUtterance). Missing these was why some words still clipped.
 function stillSpeaking() {
+  // synthesis (English meaning / Filipino fallback) still talking or queued...
   if ("speechSynthesis" in window && (speechSynthesis.speaking || speechSynthesis.pending)) return true;
-  const a = currentAudio;
-  if (a && a.src) {
-    if (!a.paused && !a.ended) return true;                                   // actively playing
-    if (!a.ended && a.readyState < 3) return true;                            // src set, still buffering → will play
-    if (!a.ended && a.duration && a.currentTime < a.duration - 0.05) return true; // loaded, not finished
-  }
+  // ...or the Google TTS clip is loading/playing (event-driven flag, not inferred).
+  if (ttsBusy) return true;
   return false;
 }
 // Advance only after speech has been CONTINUOUSLY quiet for a settle window (bridges buffering gaps
