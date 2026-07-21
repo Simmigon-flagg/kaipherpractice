@@ -2591,6 +2591,7 @@ function finishAnswer(ok) {
       v.textContent = "✅ Correct! " + tl + " = " + en;
       v.className = "verdict good";
       // reinforcement starts at +800ms; size the wait to when that readback should finish
+      let phraseSpoken = false;
       if (rev) { laterSpeak(() => speak(tl), 800); waitMs = 800 + estSpeakMs(tl, true) + 500; }        // repeat the Tagalog you produced
       else { laterSpeak(() => speakEnglish(en), 800); waitMs = 800 + estSpeakMs(en, false) + 500; }    // say the English meaning after the bell
       if (!rev && phrasesOn() && PHRASE_DATA[tl]) {
@@ -2599,7 +2600,13 @@ function finishAnswer(ok) {
           '<div class="phrase-tl">' + ptl + '</div><div class="phrase-en">' + pen + '</div>';
         laterSpeak(() => speak(ptl), 1800);
         waitMs = Math.max(waitMs, 1800 + estSpeakMs(ptl, true) + 500); // Tagalog context sentence plays after the meaning
+        phraseSpoken = true;
       }
+      // When it's a SENTENCE (the Sentences deck, a 3+ word phrase, or a spoken context sentence),
+      // hold at least 7s so it finishes and sinks in. Floor only — longer sentences still get more,
+      // and the ⏭ Next button skips it whenever you're ready.
+      const wordCount = s => (s || "").trim().split(/\s+/).filter(Boolean).length;
+      if (inSentences() || phraseSpoken || wordCount(rev ? tl : en) >= 3) waitMs = Math.max(waitMs, 7000);
     }
   } else {
     buzz();
