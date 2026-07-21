@@ -2321,7 +2321,7 @@ function renderHome() {
     const sd = document.createElement("div");
     sd.className = "cat-card all";
     sd.innerHTML = '<span class="emoji">⚡</span><div class="name">Speed Round</div>' +
-      '<div class="count">' + known + ' known ' + deckUnit() + ' · ' + SPEED_SECONDS + 's · no voices, just dings · best: ' +
+      '<div class="count">' + known + ' known ' + deckUnit() + ' · ' + SPEED_SECONDS + 's · hear each word · best: ' +
       (+(localStorage.getItem(speedBestKey()) || 0)) + '</div>';
     sd.onclick = startSpeedRound;
     grid.appendChild(sd);
@@ -2526,7 +2526,7 @@ function nextQuestion() {
   clearNextCountdown(); // cancel any running "Next in Ns" countdown before dealing the new word
   stopSpeech(); // kill any leftover reinforcement audio so it can't clobber this word
   const wd = document.getElementById("wordDisplay");
-  if (speedMode) { showPrompt(true); return; } // speed round: read it, no voices
+  if (speedMode) { showPrompt(true); speak(tl); return; } // speed round: show the word AND speak its pronunciation
   if (judge) {
     // judge mode: show the sentence (reading helps grammar judgment) and speak it
     setWordDisplay(wd, tl, true); wd.className = "tl-word";
