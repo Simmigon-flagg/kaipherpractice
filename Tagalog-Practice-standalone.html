@@ -2562,7 +2562,10 @@ function stillSpeaking() {
 // and the cancel gap), then wait a short tail so the final syllable isn't clipped. minDelay is the
 // floor; cap stops it hanging forever. This is timing only — voices/URLs/fallbacks are untouched.
 function advanceAfterSpeech(fn, minDelay) {
-  const QUIET_MS = 350, TAIL_MS = 250, cap = minDelay + 12000;
+  // Real Google-TTS Filipino clips measured 1.3s (2 words) → 14s (28 words); at Slow speed a long
+  // one nears ~17s. The cap only guards against a stuck flag, so keep it well past the longest
+  // real sentence so it can never itself clip a legit readback.
+  const QUIET_MS = 350, TAIL_MS = 250, cap = minDelay + 30000;
   const startTime = performance.now();
   let lastBusy = startTime; // last time we saw speech; keeps the settle window honest through gaps
   function tick() {
