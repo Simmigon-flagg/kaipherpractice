@@ -4,10 +4,11 @@
 
 ## 🚦 WORKFLOW RULES (do not break these)
 1. **One feature at a time.** Never start the next until the current one is DONE.
-2. **Each feature gets its OWN branch** (branch name in the table below). Never build a feature on `main`.
-3. **STOP after building one feature.** Wait for Kaipher to **test it AND merge it** before touching the next.
-4. Update this sheet's **Status** column as you go. Mark ✅ merged only after Kaipher confirms.
-5. Do **not** touch the locked audio/voices while doing any of these (see the 🚫 rule in `CLAUDE.md`) unless the feature IS the audio and Kaipher said so.
+2. **Build directly on `main` — no separate branches** (Kaipher, 2026-07-21: "one repo now"). The old per-feature-branch rule is retired.
+3. **STOP after building one feature.** Wait for Kaipher to **test it** before touching the next.
+4. **Temporary highlight:** each new feature must flash the on-screen 🆕 "new feature" flag (`flagNewFeature(label)`) and/or wear an `nf-badge` so Kaipher can see when it's active while testing. Remove all highlights once features are settled.
+5. Update this sheet's **Status** column as you go. Mark ✅ only after Kaipher confirms.
+6. Do **not** touch the locked audio/voices while doing any of these (see the 🚫 rule in `CLAUDE.md`) unless the feature IS the audio and Kaipher said so.
 
 ## Status legend
 `⬜ not started` · `🔵 in progress (on its branch)` · `🧪 awaiting Kaipher's test` · `🟠 testing feedback` · `✅ tested + merged`
@@ -18,7 +19,7 @@
 
 | # | Feature | What it adds | Branch | Status |
 |---|---------|--------------|--------|--------|
-| 0 | **Playback speed control** | Slow/Normal/Fast/Faster for the Tagalog audio | `new-feature` | 🧪 awaiting test + merge |
+| 0 | **Playback speed control** | Slow/Normal/Fast/Faster for the Tagalog audio | `main` (folded in) | 🧪 awaiting test |
 | 1 | **Recall-before-recognition** | Hide the choices ~3s on *seen* words (with a "show now" tap) so you recall before you recognize. Strengthens the #1 technique (active recall). | `feat/recall-before-recognition` | ⬜ |
 | 6 | **Cross-deck interleaving** | Mix words + sentences (and categories) in one session instead of separate decks — so you see sentences using learned words during "Start Today's Practice." | `feat/interleaving` | ⬜ ← **NEXT after #1** |
 | 2 | **Dual coding (images)** | Pair a small picture with each word so meaning is stored visually + verbally. Biggest untapped gap. | `feat/dual-coding-images` | ⬜ |

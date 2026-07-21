@@ -241,6 +241,24 @@
     .verdict { min-height: 20px; margin-top: 6px; }
     .row { margin-top: 8px; }
   }
+
+  /* ---------- TEMPORARY "new feature" highlight (remove once features are settled) ----------
+     A floating amber pill flashes when a new roadmap feature actually does its thing, so Kaipher
+     can see which behavior is the new one while testing. `flagNewFeature(label)` drives it. */
+  #newFeatureFlag {
+    position: fixed; top: 12px; left: 50%; transform: translate(-50%, -18px);
+    background: #ffd24a; color: #3a2c00; font-weight: 700; font-size: 1.05rem;
+    padding: 9px 16px; border-radius: 999px; box-shadow: 0 4px 16px rgba(0,0,0,.28);
+    z-index: 9999; opacity: 0; pointer-events: none; max-width: 92vw; text-align: center;
+    transition: opacity .22s ease, transform .22s ease;
+  }
+  #newFeatureFlag.show { opacity: 1; transform: translate(-50%, 0); }
+  /* persistent little badge you can drop on any control that is a new feature */
+  .nf-badge {
+    display: inline-block; background: #ffd24a; color: #3a2c00; font-weight: 700;
+    font-size: .7rem; line-height: 1; padding: 3px 6px; border-radius: 999px;
+    margin-left: 6px; vertical-align: middle;
+  }
 </style>
 </head>
 <body>
@@ -351,6 +369,7 @@
     <div class="row">
       <button class="ghost-btn" id="peekBtn">👁 Show word</button>
       <button class="ghost-btn" id="skipBtn">Skip →</button>
+      <button class="ghost-btn" id="speedBtn" title="Playback speed — tap to cycle"><span id="speedLabel">⚡ Fast</span><span class="nf-badge">🆕</span></button>
     </div>
   </div>
 
@@ -1845,6 +1864,12 @@ let currentAudio = null;
 // user tap, iOS lets it auto-play each new word on arrival. Voice/URL is UNCHANGED — do not alter.
 const ttsAudio = new Audio();
 ttsAudio.referrerPolicy = "no-referrer";
+// Owner-requested feature #0 (playback SPEED). Scales how fast the Tagalog plays — Google audio via
+// playbackRate (pitch preserved so it doesn't chipmunk), fallback via utterance rate. Voice/URL are
+// UNCHANGED; this only changes speed. Persisted in localStorage.
+const TTS_SPEEDS = [{ r: 0.85, label: "🐢 Slow" }, { r: 1.0, label: "🗣 Normal" }, { r: 1.25, label: "⚡ Fast" }, { r: 1.5, label: "🔥 Faster" }];
+let ttsSpeedIdx = Math.min(TTS_SPEEDS.length - 1, Math.max(0, +(localStorage.getItem("tq_ttsSpeed") ?? 2)));
+function ttsSpeed() { return TTS_SPEEDS[ttsSpeedIdx].r; }
 let gttsFails = 0; // consecutive Google-TTS failures; only give up after several in a row
 // Delayed reinforcement speech (the "+800ms / +1800ms" replays after a correct answer) used
 // raw setTimeouts that were never cancelled — so a leftover replay could fire as the NEXT word
@@ -1868,7 +1893,7 @@ function speakFallback(word) {
     const u = new SpeechSynthesisUtterance(word);
     if (filVoice) { u.voice = filVoice; u.lang = filVoice.lang; }
     else { u.lang = "fil-PH"; } // no installed Filipino voice — still ask the OS engine, don't go silent
-    u.rate = 0.85;
+    u.rate = ttsSpeed();
     sayUtterance(u);
   } else {
     showPrompt(true);
@@ -1882,6 +1907,8 @@ function speak(word) {
     const a = ttsAudio;
     a.pause();
     a.src = url;
+    a.playbackRate = ttsSpeed(); // owner-requested feature #0: speed control
+    try { a.preservesPitch = a.mozPreservesPitch = a.webkitPreservesPitch = true; } catch (e) {}
     currentAudio = a;
     const onFail = err => {
       if (err && err.name === "NotAllowedError") return; // autoplay block before first tap — not a real failure
@@ -1896,7 +1923,7 @@ function speak(word) {
   }
   if (filVoice) {
     const u = new SpeechSynthesisUtterance(word);
-    u.voice = filVoice; u.lang = filVoice.lang; u.rate = 0.85;
+    u.voice = filVoice; u.lang = filVoice.lang; u.rate = ttsSpeed();
     sayUtterance(u);
     return;
   }
@@ -2613,6 +2640,32 @@ document.getElementById("saveKeyBtn").onclick = () => {
 };
 document.getElementById("peekBtn").onclick = () => showPrompt(true);
 document.getElementById("skipBtn").onclick = nextQuestion;
+// ---------- TEMPORARY: "new feature" highlight (remove once features are settled) ----------
+// Flashes an amber pill so Kaipher can see when a new roadmap feature actually does its thing.
+function flagNewFeature(label) {
+  let el = document.getElementById("newFeatureFlag");
+  if (!el) { el = document.createElement("div"); el.id = "newFeatureFlag"; document.body.appendChild(el); }
+  el.textContent = "🆕 New feature: " + label;
+  el.classList.add("show");
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove("show"), 2600);
+}
+// Speed control (owner-requested feature #0): cycle Slow → Normal → Fast → Faster, persist, preview.
+(function () {
+  const speedBtn = document.getElementById("speedBtn");
+  const speedLabel = document.getElementById("speedLabel");
+  if (!speedBtn || !speedLabel) return;
+  speedLabel.textContent = TTS_SPEEDS[ttsSpeedIdx].label;
+  ttsAudio.playbackRate = ttsSpeed();
+  speedBtn.onclick = () => {
+    ttsSpeedIdx = (ttsSpeedIdx + 1) % TTS_SPEEDS.length;
+    localStorage.setItem("tq_ttsSpeed", ttsSpeedIdx);
+    speedLabel.textContent = TTS_SPEEDS[ttsSpeedIdx].label;
+    ttsAudio.playbackRate = ttsSpeed();
+    flagNewFeature("Playback speed — " + TTS_SPEEDS[ttsSpeedIdx].label);
+    if (current) speak(current.tl); // preview the current word at the new speed
+  };
+})();
 document.getElementById("homeBtn").onclick = goHome;
 document.getElementById("startHereBtn").onclick = smartStart;
 // Endless, no-stakes cool-down: only words you already know, misses never demote them.
