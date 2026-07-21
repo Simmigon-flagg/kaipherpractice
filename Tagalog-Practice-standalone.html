@@ -2505,6 +2505,26 @@ function answer(btn, choice) {
   });
   finishAnswer(choice === target);
 }
+// Owner-approved TIMING fix (2026-07-21): long Tagalog/English readbacks were getting cut off
+// because the next question advanced on a FIXED timer while the reinforcement was still speaking.
+// Gate the advance on the readback actually finishing (the old delay is now just a MINIMUM), with
+// a safety cap so it can never hang. Voices / URLs / fallbacks are UNCHANGED — this only affects
+// WHEN we move on to the next word, never how anything is spoken.
+function stillSpeaking() {
+  const gPlaying = currentAudio && !currentAudio.paused && !currentAudio.ended;
+  const sPlaying = ("speechSynthesis" in window) && speechSynthesis.speaking;
+  return !!gPlaying || !!sPlaying;
+}
+function advanceAfterSpeech(fn, minDelay) {
+  const startTime = performance.now();
+  const cap = minDelay + 8000; // never wait more than ~8s past the minimum, so it can't hang
+  function tick() {
+    const elapsed = performance.now() - startTime;
+    if (elapsed >= cap || (elapsed >= minDelay && !stillSpeaking())) { fn(); return; }
+    pendingSpeech.push(setTimeout(tick, 150));
+  }
+  pendingSpeech.push(setTimeout(tick, minDelay));
+}
 function finishAnswer(ok) {
   const { tl, en, key, rev } = current;
   const isNew = !progress[key];
@@ -2565,7 +2585,7 @@ function finishAnswer(ok) {
   updateSessBar();
   updateStats();
   const inQuiz = () => document.getElementById("quizScreen").style.display !== "none";
-  setTimeout(() => { if (inQuiz() && !speedMode) nextQuestion(); }, (ok ? 2400 : 2600) + extraDelay);
+  advanceAfterSpeech(() => { if (inQuiz() && !speedMode) nextQuestion(); }, (ok ? 2400 : 2600) + extraDelay);
 }
 function updateStats() {
   document.getElementById("score").textContent = score;
