@@ -25,8 +25,9 @@
     display: flex; flex-direction: column; align-items: center;
     min-height: 100vh; padding: 24px 16px; font-size: 1.25rem;
   }
-  h1 { font-size: 2rem; margin-bottom: 4px; }
-  .sub { color: var(--muted); font-size: 1.15rem; margin-bottom: 20px; }
+  /* No app title (redundant). The subtitle is the page heading; top margin keeps it clear of the
+     fixed study-timer pill in the top-right so the header never looks cluttered/overlapping. */
+  .sub { color: var(--text); font-size: 1.4rem; font-weight: 600; margin: 30px 0 20px; }
   .stats { display: flex; gap: 22px; margin-bottom: 18px; font-size: 1.2rem; color: var(--muted); }
   .stats b { color: var(--text); }
 
@@ -204,8 +205,7 @@
     #studyTimer { font-size: .78rem; padding: 5px 9px; gap: 5px; top: 8px; right: 8px; }
     #studyTimer .tt-cd { min-width: 46px; }
     #studyTimer .tt-btn { width: 26px; height: 26px; font-size: .8rem; }
-    h1 { font-size: 1.5rem; line-height: 1.2; padding-right: 132px; } /* stay clear of the fixed timer */
-    .sub { font-size: .95rem; }
+    .sub { font-size: 1.15rem; margin-top: 36px; } /* sit below the fixed timer pill, not beside it */
     .deck-toggle {
       width: 100%; max-width: 100%; justify-content: flex-start;
       overflow-x: auto; -webkit-overflow-scrolling: touch; gap: 4px; padding: 5px;
@@ -268,7 +268,6 @@
     <button class="tt-btn" id="ttToggle" title="Start / pause the countdown">▶</button>
     <button class="tt-btn" id="ttSet" title="Set countdown length">⏲</button>
   </div>
-  <h1>Kaipher Practice</h1>
   <div class="sub" id="subTitle">Pick a category to start</div>
   <button id="extraPracticeBtn" style="display:none">🎉 Hour done — keep going? Easy review of words you know ♾️</button>
 
