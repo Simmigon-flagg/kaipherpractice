@@ -2565,7 +2565,7 @@ function answer(btn, choice) {
   const { tl, en, rev } = current;
   const target = rev ? tl : en;
   if (speedMode) {
-    if (choice === target) { speedDing(); score++; btn.classList.add("correct"); }
+    if (choice === target) { correctSound(); score++; btn.classList.add("correct"); } // same win sound as the rest of the app
     else {
       buzz(); btn.classList.add("wrong");
       document.querySelectorAll(".choice").forEach(b => { if (b.textContent === target) b.classList.add("correct"); });
