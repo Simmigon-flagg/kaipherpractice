@@ -54,6 +54,26 @@
   .custom-item .ci-tag { font-size: .8rem; color: var(--muted); white-space: nowrap; }
   .custom-item .ci-del { background: none; border: none; color: var(--bad); font-size: 1.3rem; cursor: pointer; padding: 4px 8px; }
   .custom-empty { color: var(--muted); text-align: center; padding: 12px; }
+
+  /* 🎤 Speak & Score */
+  #speakPanel { display: none; margin-top: 8px; text-align: center; }
+  #homeScreen.speaking > *:not(.deck-toggle):not(#speakPanel) { display: none !important; }
+  #homeScreen.speaking #speakPanel { display: block; }
+  #speakPanel .speak-sub { color: var(--muted); font-size: 1rem; margin-bottom: 16px; font-weight: 400; }
+  .speak-card { background: var(--card); border: 1px solid #3a4054; border-radius: 16px; padding: 22px 16px; margin-bottom: 16px; }
+  .speak-tl { font-size: 2rem; font-weight: 700; word-break: break-word; }
+  .speak-en { color: var(--muted); font-size: 1.1rem; margin-top: 4px; }
+  .speak-mic { width: 100%; background: var(--accent); color: #fff; border: none; border-radius: 14px;
+    padding: 18px; font-size: 1.3rem; font-weight: 700; cursor: pointer; }
+  .speak-mic.listening { background: var(--bad); animation: ttflash 1s steps(1) infinite; }
+  .speak-mic:disabled { opacity: .5; }
+  .speak-result { min-height: 46px; margin: 14px 0; font-size: 1.15rem; }
+  .speak-result .heard { color: var(--muted); font-size: .95rem; display: block; margin-top: 4px; }
+  .speak-result.great { color: var(--good); font-weight: 700; }
+  .speak-result.close { color: #ffd24a; font-weight: 700; }
+  .speak-result.off { color: var(--bad); font-weight: 700; }
+  .speak-row { display: flex; gap: 10px; justify-content: center; align-items: center; flex-wrap: wrap; }
+  #speakScope { background: #2e3342; color: var(--text); border: 1px solid #3a4054; border-radius: 10px; padding: 10px 12px; font-size: 1rem; }
   .stats { display: flex; gap: 22px; margin-bottom: 18px; font-size: 1.2rem; color: var(--muted); }
   .stats b { color: var(--text); }
 
@@ -305,6 +325,7 @@
       <button id="deckConj">🧩 Conjugation</button>
       <button id="deckJudge">🤔 Makes Sense?</button>
       <button id="deckAdd">➕ Add</button>
+      <button id="deckSpeak">🎤 Speak</button>
     </div>
     <!-- ➕ Add tab: anyone (e.g. a native speaker) can add their own words/sentences — and alternate
          ways to say something — straight into the test bank. Shown only when the Add tab is active. -->
@@ -319,6 +340,27 @@
       <div class="add-hint">Tip: add another way to say it with a slash — e.g. <b>salamat / salamat po</b> — and both count as correct.</div>
       <button id="addSaveBtn" type="button">➕ Add to bank</button>
       <div id="customList"></div>
+    </div>
+    <!-- 🎤 Speak & Score: hear a word/phrase, say it out loud, get graded on pronunciation via the
+         phone's speech recognition, then hear the correct version. Seeded with words you've learned. -->
+    <div id="speakPanel">
+      <div class="add-title">🎤 Speak &amp; Score</div>
+      <div class="speak-sub">Hear it → say it out loud → get scored. Closes the gap between recognizing a word and actually saying it.</div>
+      <div class="speak-card">
+        <div id="speakTL" class="speak-tl">—</div>
+        <div id="speakEN" class="speak-en"></div>
+        <button id="speakPlay" class="play-btn" type="button" style="margin:6px auto 0; display:block">🔊 Hear it</button>
+      </div>
+      <button id="speakMic" class="speak-mic" type="button">🎤 Tap &amp; say it</button>
+      <div id="speakResult" class="speak-result"></div>
+      <div class="speak-row">
+        <button id="speakSkip" class="ghost-btn" type="button">Next word →</button>
+        <select id="speakScope">
+          <option value="known">Words I've learned</option>
+          <option value="all">All words</option>
+          <option value="sentences">Sentences</option>
+        </select>
+      </div>
     </div>
     <div class="learned-banner" id="learnedBanner"></div>
     <button id="startHereBtn">▶ Start Today’s Practice</button>
@@ -2458,7 +2500,7 @@ function finishSession(canContinue) {
 }
 function goHome() {
   clearNextCountdown();
-  if (typeof hideAddPanel === "function") hideAddPanel();
+  if (typeof hidePanels === "function") hidePanels();
   if (currentAudio) { currentAudio.pause(); currentAudio = null; }
   speechSynthesis.cancel();
   speedMode = false;
@@ -2805,22 +2847,26 @@ document.getElementById("deleteSoundBtn").onclick = async () => {
 document.getElementById("newCapSelect").onchange = e => { localStorage.setItem(NEWCAP_KEY, e.target.value); renderHome(); };
 document.getElementById("revSelect").onchange = e => { localStorage.setItem(REV_KEY, e.target.value); renderHome(); };
 document.getElementById("phraseSelect").onchange = e => { localStorage.setItem(PHRASE_KEY, e.target.value); };
-document.getElementById("deckWords").onclick = () => { hideAddPanel(); setDeck("words"); };
-document.getElementById("deckSentences").onclick = () => { hideAddPanel(); setDeck("sentences"); };
-document.getElementById("deckConj").onclick = () => { hideAddPanel(); setDeck("conj"); };
-document.getElementById("deckJudge").onclick = () => { hideAddPanel(); setDeck("judge"); };
+document.getElementById("deckWords").onclick = () => { hidePanels(); setDeck("words"); };
+document.getElementById("deckSentences").onclick = () => { hidePanels(); setDeck("sentences"); };
+document.getElementById("deckConj").onclick = () => { hidePanels(); setDeck("conj"); };
+document.getElementById("deckJudge").onclick = () => { hidePanels(); setDeck("judge"); };
+
+// Home-screen panels (Add / Speak) are not real decks — they overlay the home body. hidePanels()
+// closes both and re-lights the current deck's pill (setDeck early-returns if the deck is unchanged).
+function hidePanels() { hideAddPanel(); hideSpeakPanel(); updateDeckToggle(); }
 
 // ---------- ➕ Add tab: add your own words/sentences to the test bank ----------
 let addType = "word"; // "word" -> customWords (Words deck) | "sentence" -> customSentences (Sentences deck)
 function hideAddPanel() {
   document.getElementById("homeScreen").classList.remove("adding");
   document.getElementById("deckAdd").classList.remove("active");
-  updateDeckToggle(); // re-light the current deck's pill (setDeck early-returns if the deck is unchanged)
 }
 function showAddPanel() {
+  hideSpeakPanel();
   document.getElementById("homeScreen").classList.add("adding");
   // the real decks each own an "active" pill; light up Add and clear the others
-  ["deckWords", "deckSentences", "deckConj", "deckJudge"].forEach(id => document.getElementById(id).classList.remove("active"));
+  ["deckWords", "deckSentences", "deckConj", "deckJudge", "deckSpeak"].forEach(id => document.getElementById(id).classList.remove("active"));
   document.getElementById("deckAdd").classList.add("active");
   renderCustomList();
 }
@@ -2879,6 +2925,119 @@ document.getElementById("addTypeWord").onclick = () => setAddType("word");
 document.getElementById("addTypeSentence").onclick = () => setAddType("sentence");
 document.getElementById("addSaveBtn").onclick = addCustomEntry;
 document.getElementById("addEN").addEventListener("keydown", e => { if (e.key === "Enter") addCustomEntry(); });
+
+// ---------- 🎤 Speak & Score: say the word out loud, get graded on pronunciation ----------
+// Uses the browser's speech recognition (fil-PH). Isolated from the quiz engine. Recognition
+// quality for Tagalog varies by device, so scoring is forgiving and always lets you hear the model.
+const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+let speakItem = null, speakRecog = null, speakListening = false;
+function hideSpeakPanel() {
+  document.getElementById("homeScreen").classList.remove("speaking");
+  const b = document.getElementById("deckSpeak");
+  if (b) b.classList.remove("active");
+  stopListening();
+}
+function showSpeakPanel() {
+  hideAddPanel();
+  document.getElementById("homeScreen").classList.add("speaking");
+  ["deckWords", "deckSentences", "deckConj", "deckJudge", "deckAdd"].forEach(id => document.getElementById(id).classList.remove("active"));
+  document.getElementById("deckSpeak").classList.add("active");
+  if (!SpeechRec) {
+    document.getElementById("speakMic").disabled = true;
+    document.getElementById("speakMic").textContent = "🎤 Not supported on this browser";
+    document.getElementById("speakResult").textContent = "Your browser can't do speech recognition. Try Chrome or Safari.";
+  }
+  newSpeakWord();
+}
+function speakPool() {
+  const scope = document.getElementById("speakScope").value;
+  const words = [], sents = [];
+  Object.values(WORD_CATEGORIES).forEach(c => words.push(...c.words));
+  words.push(...customWords);
+  Object.values(SENTENCE_CATS).forEach(c => sents.push(...c.words));
+  sents.push(...customSentences);
+  if (scope === "sentences") return sents;
+  if (scope === "all") return words;
+  const learned = words.concat(sents).filter(([tl]) => (progress[tl] || {}).ok >= 3); // "known"
+  return learned.length ? learned : words; // fall back to all words if nothing learned yet
+}
+function newSpeakWord() {
+  const pool = speakPool();
+  speakItem = pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
+  const tlEl = document.getElementById("speakTL"), enEl = document.getElementById("speakEN"), res = document.getElementById("speakResult");
+  res.textContent = ""; res.className = "speak-result";
+  if (!speakItem) { tlEl.textContent = "—"; enEl.textContent = "Nothing to practice yet."; return; }
+  tlEl.textContent = speakItem[0];
+  enEl.textContent = speakItem[1];
+  speak(speakItem[0]); // hear the model pronunciation first
+}
+function stopListening() {
+  if (speakRecog) { try { speakRecog.abort(); } catch (e) {} speakRecog = null; }
+  speakListening = false;
+  const mic = document.getElementById("speakMic");
+  if (mic && !mic.disabled) { mic.classList.remove("listening"); mic.textContent = "🎤 Tap & say it"; }
+}
+function scoreSpeech(said, target) {
+  const a = normAnswer(said), b = normAnswer(target);
+  if (!a) return { band: "off", ratio: 0 };
+  if (a === b) return { band: "great", ratio: 1 };
+  const ratio = 1 - levenshtein(a, b) / Math.max(a.length, b.length);
+  if (ratio >= 0.85) return { band: "great", ratio };
+  if (ratio >= 0.6) return { band: "close", ratio };
+  return { band: "off", ratio };
+}
+function handleSpeechResult(alternatives) {
+  if (!speakItem) return;
+  // score every alternative the recognizer offered; keep the best
+  let best = { band: "off", ratio: -1 }, heard = alternatives[0] || "";
+  alternatives.forEach(alt => { const s = scoreSpeech(alt, speakItem[0]); if (s.ratio > best.ratio) { best = s; heard = alt; } });
+  const res = document.getElementById("speakResult");
+  const heardLine = '<span class="heard">heard: "' + heard.replace(/</g, "&lt;") + '"</span>';
+  if (best.band === "great") {
+    res.className = "speak-result great";
+    res.innerHTML = "✅ Great pronunciation!" + heardLine;
+    correctSound();
+    setTimeout(newSpeakWord, 1600);
+  } else if (best.band === "close") {
+    res.className = "speak-result close";
+    res.innerHTML = "🟡 Close — listen and try again." + heardLine;
+    setTimeout(() => speak(speakItem[0]), 400);
+  } else {
+    res.className = "speak-result off";
+    res.innerHTML = "❌ Not quite — here's how it sounds." + heardLine;
+    setTimeout(() => speak(speakItem[0]), 400);
+  }
+}
+function startListening() {
+  if (!SpeechRec || !speakItem) return;
+  if (speakListening) { stopListening(); return; }
+  stopSpeech(); // don't let the model playback bleed into the mic
+  speakRecog = new SpeechRec();
+  speakRecog.lang = "fil-PH";
+  speakRecog.interimResults = false;
+  speakRecog.maxAlternatives = 5;
+  const mic = document.getElementById("speakMic");
+  speakRecog.onresult = e => {
+    const alts = [];
+    for (let i = 0; i < e.results[0].length; i++) alts.push(e.results[0][i].transcript);
+    handleSpeechResult(alts);
+  };
+  speakRecog.onerror = e => {
+    const res = document.getElementById("speakResult");
+    res.className = "speak-result off";
+    res.textContent = e.error === "not-allowed"
+      ? "🎤 Microphone blocked — allow mic access in your browser settings."
+      : e.error === "no-speech" ? "Didn't catch anything — tap and try again." : "Mic error: " + e.error;
+  };
+  speakRecog.onend = () => stopListening();
+  try { speakRecog.start(); speakListening = true; mic.classList.add("listening"); mic.textContent = "● Listening… tap to stop"; }
+  catch (e) { stopListening(); }
+}
+document.getElementById("deckSpeak").onclick = showSpeakPanel;
+document.getElementById("speakMic").onclick = startListening;
+document.getElementById("speakPlay").onclick = () => { if (speakItem) speak(speakItem[0]); };
+document.getElementById("speakSkip").onclick = () => { stopListening(); newSpeakWord(); };
+document.getElementById("speakScope").onchange = newSpeakWord;
 document.getElementById("importBtn").onclick = () => {
   const b = document.getElementById("importBox");
   b.style.display = b.style.display === "block" ? "none" : "block";
