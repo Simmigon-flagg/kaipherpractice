@@ -2942,12 +2942,18 @@ function showSpeakPanel() {
   document.getElementById("homeScreen").classList.add("speaking");
   ["deckWords", "deckSentences", "deckConj", "deckJudge", "deckAdd"].forEach(id => document.getElementById(id).classList.remove("active"));
   document.getElementById("deckSpeak").classList.add("active");
+  newSpeakWord(); // sets the word + clears the result area first
+  const res = document.getElementById("speakResult"), mic = document.getElementById("speakMic");
   if (!SpeechRec) {
-    document.getElementById("speakMic").disabled = true;
-    document.getElementById("speakMic").textContent = "🎤 Not supported on this browser";
-    document.getElementById("speakResult").textContent = "Your browser can't do speech recognition. Try Chrome or Safari.";
+    mic.disabled = true;
+    mic.textContent = "🎤 Not supported on this browser";
+    res.className = "speak-result off";
+    res.innerHTML = "This browser can't do speech recognition.<span class='heard'>On iPhone, open this page in <b>Safari</b>.</span>";
+  } else if (iosNonSafari()) {
+    // API may exist but Apple blocks it outside Safari — warn up front instead of failing silently
+    res.className = "speak-result off";
+    res.innerHTML = "Heads up: on iPhone the mic only works in <b>Safari</b>.<span class='heard'>Open this same page in Safari if the mic doesn't respond.</span>";
   }
-  newSpeakWord();
 }
 function speakPool() {
   const scope = document.getElementById("speakScope").value;
@@ -2971,7 +2977,16 @@ function newSpeakWord() {
   enEl.textContent = speakItem[1];
   speak(speakItem[0]); // hear the model pronunciation first
 }
+let speakStartWatch = null;
+// Confirmed platform limit: Apple only exposes speech recognition to Safari on iOS — every other
+// iPhone browser (Chrome/CriOS, Firefox/FxiOS, Edge/EdgiOS…) is blocked and start() fails silently.
+function iosNonSafari() {
+  const ua = navigator.userAgent;
+  const iOS = /iP(hone|ad|od)/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  return iOS && /CriOS|FxiOS|EdgiOS|OPiOS|GSA/.test(ua);
+}
 function stopListening() {
+  clearTimeout(speakStartWatch); speakStartWatch = null;
   if (speakRecog) { try { speakRecog.abort(); } catch (e) {} speakRecog = null; }
   speakListening = false;
   const mic = document.getElementById("speakMic");
@@ -3009,7 +3024,9 @@ function handleSpeechResult(alternatives) {
   }
 }
 function startListening() {
-  if (!SpeechRec || !speakItem) return;
+  const res = document.getElementById("speakResult");
+  if (!speakItem) return;
+  if (!SpeechRec) { res.className = "speak-result off"; res.innerHTML = "This browser has no speech recognition.<span class='heard'>On iPhone, open this page in <b>Safari</b> — Apple blocks the mic in Chrome & other iPhone browsers.</span>"; return; }
   if (speakListening) { stopListening(); return; }
   stopSpeech(); // don't let the model playback bleed into the mic
   speakRecog = new SpeechRec();
@@ -3017,21 +3034,40 @@ function startListening() {
   speakRecog.interimResults = false;
   speakRecog.maxAlternatives = 5;
   const mic = document.getElementById("speakMic");
+  let started = false;
+  speakRecog.onaudiostart = speakRecog.onstart = () => { started = true; res.className = "speak-result"; res.textContent = "● Listening…"; };
   speakRecog.onresult = e => {
     const alts = [];
     for (let i = 0; i < e.results[0].length; i++) alts.push(e.results[0][i].transcript);
     handleSpeechResult(alts);
   };
   speakRecog.onerror = e => {
-    const res = document.getElementById("speakResult");
     res.className = "speak-result off";
     res.textContent = e.error === "not-allowed"
       ? "🎤 Microphone blocked — allow mic access in your browser settings."
-      : e.error === "no-speech" ? "Didn't catch anything — tap and try again." : "Mic error: " + e.error;
+      : e.error === "no-speech" ? "Didn't catch anything — tap and try again."
+      : e.error === "service-not-allowed" ? "This browser won't allow speech recognition — on iPhone use Safari."
+      : "Mic error: " + e.error;
   };
   speakRecog.onend = () => stopListening();
-  try { speakRecog.start(); speakListening = true; mic.classList.add("listening"); mic.textContent = "● Listening… tap to stop"; }
-  catch (e) { stopListening(); }
+  try {
+    speakRecog.start();
+    speakListening = true; mic.classList.add("listening"); mic.textContent = "● Listening… tap to stop";
+    // watchdog: if nothing ever starts (silent failure on blocked browsers), say so plainly
+    clearTimeout(speakStartWatch);
+    speakStartWatch = setTimeout(() => {
+      if (!started) {
+        res.className = "speak-result off";
+        res.innerHTML = "Couldn't start the mic here.<span class='heard'>" +
+          (iosNonSafari() ? "iPhone Chrome can't use the mic — open this page in <b>Safari</b>." : "Speech recognition didn't start in this browser.") + "</span>";
+        stopListening();
+      }
+    }, 2500);
+  } catch (e) {
+    res.className = "speak-result off";
+    res.textContent = "Couldn't start mic: " + (e && e.message || e);
+    stopListening();
+  }
 }
 document.getElementById("deckSpeak").onclick = showSpeakPanel;
 document.getElementById("speakMic").onclick = startListening;
