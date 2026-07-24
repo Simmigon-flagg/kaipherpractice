@@ -3259,8 +3259,10 @@ function listenPool() {
   const words = [];
   Object.values(WORD_CATEGORIES).forEach(c => words.push(...c.words));
   words.push(...customWords);
-  // fold in learned sentences too, so it bridges toward understanding real phrases
+  // fold in learned sentences too (built-in AND your own added ones), so it bridges toward
+  // understanding real phrases. Gated to ok>=3 so a sentence only appears after you've learned it.
   Object.values(SENTENCE_CATS).forEach(c => c.words.forEach(w => { if ((progress[w[0]] || {}).ok >= 3) words.push(w); }));
+  customSentences.forEach(w => { if ((progress[w[0]] || {}).ok >= 3) words.push(w); });
   return learnedFirst(words);
 }
 function newListenQ() {
