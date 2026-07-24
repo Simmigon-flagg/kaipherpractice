@@ -76,10 +76,10 @@
   #speakScope { background: #2e3342; color: var(--text); border: 1px solid #3a4054; border-radius: 10px; padding: 10px 12px; font-size: 1rem; }
 
   /* 🎮 Games (hub + individual games) */
-  #gamesPanel, #matchPanel { display: none; margin-top: 8px; text-align: center; }
-  #homeScreen.gaming > *:not(.nav-bar):not(.deck-menu):not(#gamesPanel):not(#matchPanel) { display: none !important; }
-  #homeScreen.gaming #gamesPanel.show, #homeScreen.gaming #matchPanel.show { display: block; }
-  #gamesPanel .speak-sub, #matchPanel .speak-sub { color: var(--muted); font-size: 1rem; margin-bottom: 14px; font-weight: 400; }
+  #gamesPanel, #matchPanel, #listenPanel { display: none; margin-top: 8px; text-align: center; }
+  #homeScreen.gaming > *:not(.nav-bar):not(.deck-menu):not(#gamesPanel):not(#matchPanel):not(#listenPanel) { display: none !important; }
+  #homeScreen.gaming #gamesPanel.show, #homeScreen.gaming #matchPanel.show, #homeScreen.gaming #listenPanel.show { display: block; }
+  #gamesPanel .speak-sub, #matchPanel .speak-sub, #listenPanel .speak-sub { color: var(--muted); font-size: 1rem; margin-bottom: 14px; font-weight: 400; }
   .games-list { display: flex; flex-direction: column; gap: 10px; }
   .game-card { display: flex; flex-direction: column; gap: 4px; text-align: left; background: var(--card);
     border: 1px solid #3a4054; border-radius: 14px; padding: 18px; cursor: pointer; color: var(--text); }
@@ -1629,9 +1629,9 @@ function updateDeckToggle() {
     const el = document.getElementById(id);
     if (el) el.classList.toggle("active", deckMode === mode);
   });
-  // reflect the active deck in the ☰ menu header (unless an Add/Speak panel owns it)
+  // reflect the active deck in the ☰ menu header (unless an Add/Speak/Games panel owns it)
   const home = document.getElementById("homeScreen");
-  if (home && !home.classList.contains("adding") && !home.classList.contains("speaking")) {
+  if (home && !home.classList.contains("adding") && !home.classList.contains("speaking") && !home.classList.contains("gaming")) {
     const activeBtn = document.getElementById(ids[deckMode]);
     const cur = document.getElementById("currentSection");
     if (activeBtn && cur) cur.textContent = activeBtn.textContent;
