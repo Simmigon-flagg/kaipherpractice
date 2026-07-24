@@ -76,10 +76,18 @@
   #speakScope { background: #2e3342; color: var(--text); border: 1px solid #3a4054; border-radius: 10px; padding: 10px 12px; font-size: 1rem; }
 
   /* 🎮 Games (hub + individual games) */
-  #gamesPanel, #matchPanel, #listenPanel { display: none; margin-top: 8px; text-align: center; }
-  #homeScreen.gaming > *:not(.nav-bar):not(.deck-menu):not(#gamesPanel):not(#matchPanel):not(#listenPanel) { display: none !important; }
-  #homeScreen.gaming #gamesPanel.show, #homeScreen.gaming #matchPanel.show, #homeScreen.gaming #listenPanel.show { display: block; }
+  #gamesPanel, #matchPanel, #listenPanel, #rushPanel { display: none; margin-top: 8px; text-align: center; }
+  #homeScreen.gaming > *:not(.nav-bar):not(.deck-menu):not(#gamesPanel):not(#matchPanel):not(#listenPanel):not(#rushPanel) { display: none !important; }
+  #homeScreen.gaming #gamesPanel.show, #homeScreen.gaming #matchPanel.show, #homeScreen.gaming #listenPanel.show, #homeScreen.gaming #rushPanel.show { display: block; }
   #gamesPanel .speak-sub, #matchPanel .speak-sub, #listenPanel .speak-sub { color: var(--muted); font-size: 1rem; margin-bottom: 14px; font-weight: 400; }
+  /* ⚡ Streak Rush */
+  .rush-hud { display: flex; justify-content: space-between; align-items: center; font-size: 1.15rem; font-weight: 700; margin-bottom: 10px; }
+  #rushCombo { color: var(--accent); }
+  #rushBest { color: var(--muted); }
+  .rush-timebar { height: 10px; background: #2e3342; border-radius: 6px; overflow: hidden; margin-bottom: 18px; }
+  #rushTimeFill { height: 100%; width: 100%; background: var(--good); }
+  .rush-word { font-size: 2.3rem; font-weight: 800; margin-bottom: 16px; word-break: break-word; min-height: 44px; }
+  .rush-over { margin-top: 8px; font-size: 1.2rem; }
   .games-list { display: flex; flex-direction: column; gap: 10px; }
   .game-card { display: flex; flex-direction: column; gap: 4px; text-align: left; background: var(--card);
     border: 1px solid #3a4054; border-radius: 14px; padding: 18px; cursor: pointer; color: var(--text); }
@@ -413,6 +421,10 @@
           <span class="game-name">🎧 Listen &amp; Pick</span>
           <span class="game-sub">Hear a word, choose its meaning — train your ear for real conversation</span>
         </button>
+        <button id="gameRush" class="game-card" type="button">
+          <span class="game-name">⚡ Streak Rush</span>
+          <span class="game-sub">Beat the clock, build a combo, 3 lives — chase your high score</span>
+        </button>
       </div>
       <div class="games-soon">More games coming soon.</div>
     </div>
@@ -436,6 +448,20 @@
       <button id="listenPlay" class="play-btn" type="button" style="margin:0 auto 14px; display:block">🔊 Play again</button>
       <div class="choices" id="listenChoices"></div>
       <div class="verdict" id="listenVerdict"></div>
+    </div>
+    <!-- ⚡ Streak Rush — fast recall with combo + lives + high score. Practice-only. -->
+    <div id="rushPanel" class="game-view">
+      <div style="text-align:left"><button id="rushBack" class="ghost-btn" type="button">← Games</button></div>
+      <div class="add-title">⚡ Streak Rush</div>
+      <div class="rush-hud">
+        <span id="rushHearts">❤️❤️❤️</span>
+        <span id="rushCombo">Combo 0</span>
+        <span id="rushBest">Best 0</span>
+      </div>
+      <div class="rush-timebar"><div id="rushTimeFill"></div></div>
+      <div id="rushWord" class="rush-word">—</div>
+      <div class="choices" id="rushChoices"></div>
+      <div id="rushOver" class="rush-over"></div>
     </div>
     <div class="learned-banner" id="learnedBanner"></div>
     <button id="startHereBtn">▶ Start Today’s Practice</button>
@@ -3168,10 +3194,12 @@ document.getElementById("speakScope").onchange = newSpeakWord;
 
 // ---------- 🎮 Word Match: pair Tagalog with meaning. PRACTICE-ONLY (no SRS/mastery changes) ----------
 let matchSel = null, matchLeft = 0;
-// ---------- 🎮 Games hub (Word Match + Listen & Pick; both practice-only) ----------
-const GAME_PANELS = ["gamesPanel", "matchPanel", "listenPanel"];
+let rushTimer = null, rushHearts = 0, rushScore = 0, rushCombo = 0, rushItem = null, rushDuration = 0, rushRemain = 0, rushBusy = false;
+// ---------- 🎮 Games hub (Word Match + Listen & Pick + Streak Rush; all practice-only) ----------
+const GAME_PANELS = ["gamesPanel", "matchPanel", "listenPanel", "rushPanel"];
 function showOnlyGamePanel(id) { GAME_PANELS.forEach(p => document.getElementById(p).classList.toggle("show", p === id)); }
 function hideGamesPanel() {
+  clearInterval(rushTimer); // stop the Streak Rush countdown if it's running
   document.getElementById("homeScreen").classList.remove("gaming");
   GAME_PANELS.forEach(p => document.getElementById(p).classList.remove("show"));
   const b = document.getElementById("deckGames"); if (b) b.classList.remove("active");
@@ -3303,6 +3331,84 @@ function listenAnswer(btn, choice, correct) {
 document.getElementById("gameListen").onclick = () => { showOnlyGamePanel("listenPanel"); newListenQ(); };
 document.getElementById("listenBack").onclick = showGamesPanel;
 document.getElementById("listenPlay").onclick = () => { if (listenItem) speak(listenItem[0]); };
+
+// ---------- ⚡ Streak Rush: fast recall, combo, 3 lives, high score (practice-only) ----------
+const RUSH_BEST = "tq_rushBest";
+function rushBest() { return +(localStorage.getItem(RUSH_BEST) || 0); }
+function updateRushHud() {
+  document.getElementById("rushHearts").textContent = "❤️".repeat(rushHearts) + "🖤".repeat(Math.max(0, 3 - rushHearts));
+  document.getElementById("rushCombo").textContent = "Combo " + rushCombo;
+  document.getElementById("rushBest").textContent = "Best " + Math.max(rushBest(), rushScore);
+}
+function startRush() {
+  rushHearts = 3; rushScore = 0; rushCombo = 0;
+  document.getElementById("rushOver").innerHTML = "";
+  document.getElementById("rushWord").style.display = "";
+  document.getElementById("rushChoices").style.display = "";
+  document.querySelector("#rushPanel .rush-timebar").style.display = "";
+  updateRushHud();
+  nextRush();
+}
+function nextRush() {
+  clearInterval(rushTimer); rushBusy = false;
+  const ved = document.getElementById("rushWord"), box = document.getElementById("rushChoices");
+  box.innerHTML = "";
+  const pool = matchPool(); // learned words
+  if (pool.length < 4) { ved.textContent = "Learn a few words first, then come back."; return; }
+  rushItem = pool[Math.floor(Math.random() * pool.length)];
+  const [tl, en] = rushItem;
+  ved.textContent = tl;
+  speak(tl);
+  const opts = [en], seen = new Set([normAnswer(en)]), others = pool.slice();
+  while (opts.length < 4 && others.length) {
+    const e = others.splice(Math.floor(Math.random() * others.length), 1)[0][1];
+    const k = normAnswer(e); if (!seen.has(k)) { seen.add(k); opts.push(e); }
+  }
+  for (let i = opts.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [opts[i], opts[j]] = [opts[j], opts[i]]; }
+  opts.forEach(o => { const b = document.createElement("button"); b.className = "choice"; b.textContent = o; b.onclick = () => rushAnswer(o, en, b); box.appendChild(b); });
+  // timer speeds up as your score climbs (down to ~2.2s) — that's the pressure/flow hook
+  rushDuration = Math.max(2200, 4200 - rushScore * 90); rushRemain = rushDuration;
+  const fill = document.getElementById("rushTimeFill"); fill.style.width = "100%";
+  rushTimer = setInterval(() => {
+    rushRemain -= 50;
+    fill.style.width = Math.max(0, rushRemain / rushDuration * 100) + "%";
+    if (rushRemain <= 0) { clearInterval(rushTimer); rushMiss(null, rushItem[1]); }
+  }, 50);
+}
+function rushAnswer(choice, correct, btn) {
+  if (rushBusy) return;
+  clearInterval(rushTimer);
+  if (choice === correct) {
+    rushBusy = true; rushScore++; rushCombo++; correctSound();
+    btn.classList.add("correct"); updateRushHud();
+    setTimeout(nextRush, 320);
+  } else {
+    rushMiss(btn, correct);
+  }
+}
+function rushMiss(btn, correct) {
+  rushBusy = true; clearInterval(rushTimer);
+  if (btn) btn.classList.add("wrong");
+  document.querySelectorAll("#rushChoices .choice").forEach(b => { b.disabled = true; if (b.textContent === correct) b.classList.add("correct"); });
+  buzz(); rushCombo = 0; rushHearts--; updateRushHud();
+  setTimeout(rushHearts <= 0 ? rushGameOver : nextRush, 1000);
+}
+function rushGameOver() {
+  clearInterval(rushTimer);
+  const prev = rushBest(), isBest = rushScore > prev;
+  if (isBest) localStorage.setItem(RUSH_BEST, rushScore);
+  document.getElementById("rushWord").style.display = "none";
+  document.getElementById("rushChoices").style.display = "none";
+  document.querySelector("#rushPanel .rush-timebar").style.display = "none";
+  document.getElementById("rushOver").innerHTML =
+    "<div style='font-size:1.7rem;font-weight:800'>" + (isBest ? "🏆 New best!" : "Game over") + "</div>" +
+    "<div style='margin:10px 0'>Score: <b>" + rushScore + "</b> &nbsp;·&nbsp; Best: <b>" + Math.max(prev, rushScore) + "</b></div>" +
+    "<button id='rushAgain' class='play-btn' type='button' style='margin:12px auto 0;display:block'>▶ Play again</button>";
+  document.getElementById("rushAgain").onclick = startRush;
+  updateRushHud();
+}
+document.getElementById("gameRush").onclick = () => { showOnlyGamePanel("rushPanel"); startRush(); };
+document.getElementById("rushBack").onclick = () => { clearInterval(rushTimer); showGamesPanel(); };
 document.getElementById("importBtn").onclick = () => {
   const b = document.getElementById("importBox");
   b.style.display = b.style.display === "block" ? "none" : "block";
