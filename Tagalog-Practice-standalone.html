@@ -75,16 +75,25 @@
   .speak-row { display: flex; gap: 10px; justify-content: center; align-items: center; flex-wrap: wrap; }
   #speakScope { background: #2e3342; color: var(--text); border: 1px solid #3a4054; border-radius: 10px; padding: 10px 12px; font-size: 1rem; }
 
-  /* 🎮 Word Match */
-  #matchPanel { display: none; margin-top: 8px; text-align: center; }
-  #homeScreen.matching > *:not(.nav-bar):not(.deck-menu):not(#matchPanel) { display: none !important; }
-  #homeScreen.matching #matchPanel { display: block; }
-  #matchPanel .speak-sub { color: var(--muted); font-size: 1rem; margin-bottom: 12px; font-weight: 400; }
+  /* 🎮 Games (hub + individual games) */
+  #gamesPanel, #matchPanel { display: none; margin-top: 8px; text-align: center; }
+  #homeScreen.gaming > *:not(.nav-bar):not(.deck-menu):not(#gamesPanel):not(#matchPanel) { display: none !important; }
+  #homeScreen.gaming #gamesPanel.show, #homeScreen.gaming #matchPanel.show { display: block; }
+  #gamesPanel .speak-sub, #matchPanel .speak-sub { color: var(--muted); font-size: 1rem; margin-bottom: 14px; font-weight: 400; }
+  .games-list { display: flex; flex-direction: column; gap: 10px; }
+  .game-card { display: flex; flex-direction: column; gap: 4px; text-align: left; background: var(--card);
+    border: 1px solid #3a4054; border-radius: 14px; padding: 18px; cursor: pointer; color: var(--text); }
+  .game-card:active { background: #2e3342; }
+  .game-card .game-name { font-size: 1.3rem; font-weight: 700; }
+  .game-card .game-sub { font-size: .95rem; color: var(--muted); }
+  .games-soon { color: var(--muted); font-size: .95rem; margin-top: 16px; }
   .match-status { min-height: 24px; margin: 6px 0 12px; color: var(--muted); font-size: 1.05rem; }
   .match-grid { display: flex; gap: 10px; }
   .match-col { flex: 1; display: flex; flex-direction: column; gap: 8px; }
-  .match-tile { background: var(--card); border: 2px solid #3a4054; color: var(--text); border-radius: 12px;
-    padding: 16px 10px; font-size: 1.15rem; font-weight: 600; cursor: pointer; word-break: break-word; min-height: 58px; }
+  /* every tile identical size so the grid is even */
+  .match-tile { display: flex; align-items: center; justify-content: center; text-align: center;
+    height: 64px; padding: 6px 8px; background: var(--card); border: 2px solid #3a4054; color: var(--text);
+    border-radius: 12px; font-size: 1.1rem; font-weight: 600; line-height: 1.15; cursor: pointer; overflow: hidden; }
   .match-tile.sel { border-color: var(--accent); background: #2e3342; }
   .match-tile.matched { border-color: var(--good); color: var(--good); opacity: .4; pointer-events: none; }
   .match-tile.wrong { border-color: var(--bad); animation: ttflash .4s steps(1) 2; }
@@ -352,7 +361,7 @@
       <button id="deckSentences">💬 Sentences</button>
       <button id="deckConj">🧩 Conjugation</button>
       <button id="deckJudge">🤔 Makes Sense?</button>
-      <button id="deckMatch">🎮 Word Match</button>
+      <button id="deckGames">🎮 Games</button>
       <button id="deckAdd">➕ Add words / sentences</button>
       <button id="deckSpeak">🎤 Speak &amp; Score</button>
     </div>
@@ -391,17 +400,42 @@
         </select>
       </div>
     </div>
-    <!-- 🎮 Word Match: pair a Tagalog word with its meaning. PRACTICE-ONLY — never changes your
-         mastery or schedule, so it can't give false confidence. Pulls words you're currently learning. -->
-    <div id="matchPanel">
+    <!-- 🎮 Games hub: pick a game. Games are PRACTICE-ONLY — they never change mastery/schedule. -->
+    <div id="gamesPanel" class="game-view">
+      <div class="add-title">🎮 Games</div>
+      <div class="speak-sub">Pick a game. Games are practice &amp; variety — they don't change your mastery score.</div>
+      <div class="games-list">
+        <button id="gameWordMatch" class="game-card" type="button">
+          <span class="game-name">🎮 Word Match</span>
+          <span class="game-sub">Pair each Tagalog word with its meaning</span>
+        </button>
+        <button id="gameListen" class="game-card" type="button">
+          <span class="game-name">🎧 Listen &amp; Pick</span>
+          <span class="game-sub">Hear a word, choose its meaning — train your ear for real conversation</span>
+        </button>
+      </div>
+      <div class="games-soon">More games coming soon.</div>
+    </div>
+    <!-- Word Match game — uses words you've LEARNED so you can actually match them. -->
+    <div id="matchPanel" class="game-view">
+      <div style="text-align:left"><button id="matchBack" class="ghost-btn" type="button">← Games</button></div>
       <div class="add-title">🎮 Word Match</div>
-      <div class="speak-sub">Tap a Tagalog word, then its meaning. Quick review &amp; variety — doesn't affect your mastery score.</div>
+      <div class="speak-sub">Tap a Tagalog word, then its meaning.</div>
       <div class="match-status" id="matchStatus"></div>
       <div class="match-grid">
         <div class="match-col" id="matchColTL"></div>
         <div class="match-col" id="matchColEN"></div>
       </div>
       <button id="matchNew" class="ghost-btn" type="button">New set →</button>
+    </div>
+    <!-- 🎧 Listen & Pick — hear a Tagalog word, choose its meaning. Practice-only; builds listening. -->
+    <div id="listenPanel" class="game-view">
+      <div style="text-align:left"><button id="listenBack" class="ghost-btn" type="button">← Games</button></div>
+      <div class="add-title">🎧 Listen &amp; Pick</div>
+      <div class="speak-sub">Hear a Tagalog word — tap what it means.</div>
+      <button id="listenPlay" class="play-btn" type="button" style="margin:0 auto 14px; display:block">🔊 Play again</button>
+      <div class="choices" id="listenChoices"></div>
+      <div class="verdict" id="listenVerdict"></div>
     </div>
     <div class="learned-banner" id="learnedBanner"></div>
     <button id="startHereBtn">▶ Start Today’s Practice</button>
@@ -1601,7 +1635,7 @@ function updateDeckToggle() {
     const activeBtn = document.getElementById(ids[deckMode]);
     const cur = document.getElementById("currentSection");
     if (activeBtn && cur) cur.textContent = activeBtn.textContent;
-    ["deckAdd", "deckSpeak", "deckMatch"].forEach(id => { const b = document.getElementById(id); if (b) b.classList.remove("active"); });
+    ["deckAdd", "deckSpeak", "deckGames"].forEach(id => { const b = document.getElementById(id); if (b) b.classList.remove("active"); });
   }
 }
 function closeMenu() { document.getElementById("deckMenu").classList.remove("open"); }
@@ -2907,7 +2941,7 @@ document.getElementById("deckJudge").onclick = () => { closeMenu(); hidePanels()
 
 // Home-screen panels (Add / Speak) are not real decks — they overlay the home body. hidePanels()
 // closes both and re-lights the current deck's pill (setDeck early-returns if the deck is unchanged).
-function hidePanels() { closeMenu(); hideAddPanel(); hideSpeakPanel(); hideMatchPanel(); updateDeckToggle(); }
+function hidePanels() { closeMenu(); hideAddPanel(); hideSpeakPanel(); hideGamesPanel(); updateDeckToggle(); }
 
 // ---------- ➕ Add tab: add your own words/sentences to the test bank ----------
 let addType = "word"; // "word" -> customWords (Words deck) | "sentence" -> customSentences (Sentences deck)
@@ -2917,10 +2951,10 @@ function hideAddPanel() {
 }
 function showAddPanel() {
   closeMenu();
-  hideSpeakPanel(); hideMatchPanel();
+  hideSpeakPanel(); hideGamesPanel();
   document.getElementById("homeScreen").classList.add("adding");
   // light up Add in the menu and clear the others
-  ["deckWords", "deckSentences", "deckConj", "deckJudge", "deckSpeak", "deckMatch"].forEach(id => document.getElementById(id).classList.remove("active"));
+  ["deckWords", "deckSentences", "deckConj", "deckJudge", "deckSpeak", "deckGames"].forEach(id => document.getElementById(id).classList.remove("active"));
   document.getElementById("deckAdd").classList.add("active");
   setSection("➕ Add words / sentences");
   renderCustomList();
@@ -2994,9 +3028,9 @@ function hideSpeakPanel() {
 }
 function showSpeakPanel() {
   closeMenu();
-  hideAddPanel(); hideMatchPanel();
+  hideAddPanel(); hideGamesPanel();
   document.getElementById("homeScreen").classList.add("speaking");
-  ["deckWords", "deckSentences", "deckConj", "deckJudge", "deckAdd", "deckMatch"].forEach(id => document.getElementById(id).classList.remove("active"));
+  ["deckWords", "deckSentences", "deckConj", "deckJudge", "deckAdd", "deckGames"].forEach(id => document.getElementById(id).classList.remove("active"));
   document.getElementById("deckSpeak").classList.add("active");
   setSection("🎤 Speak & Score");
   newSpeakWord(); // sets the word + clears the result area first
@@ -3134,26 +3168,34 @@ document.getElementById("speakScope").onchange = newSpeakWord;
 
 // ---------- 🎮 Word Match: pair Tagalog with meaning. PRACTICE-ONLY (no SRS/mastery changes) ----------
 let matchSel = null, matchLeft = 0;
-function hideMatchPanel() {
-  document.getElementById("homeScreen").classList.remove("matching");
-  const b = document.getElementById("deckMatch");
-  if (b) b.classList.remove("active");
+// ---------- 🎮 Games hub (Word Match + Listen & Pick; both practice-only) ----------
+const GAME_PANELS = ["gamesPanel", "matchPanel", "listenPanel"];
+function showOnlyGamePanel(id) { GAME_PANELS.forEach(p => document.getElementById(p).classList.toggle("show", p === id)); }
+function hideGamesPanel() {
+  document.getElementById("homeScreen").classList.remove("gaming");
+  GAME_PANELS.forEach(p => document.getElementById(p).classList.remove("show"));
+  const b = document.getElementById("deckGames"); if (b) b.classList.remove("active");
 }
-function showMatchPanel() {
+function showGamesPanel() {
   closeMenu(); hideAddPanel(); hideSpeakPanel();
-  document.getElementById("homeScreen").classList.add("matching");
+  document.getElementById("homeScreen").classList.add("gaming");
+  showOnlyGamePanel("gamesPanel");
   ["deckWords", "deckSentences", "deckConj", "deckJudge", "deckAdd", "deckSpeak"].forEach(id => document.getElementById(id).classList.remove("active"));
-  document.getElementById("deckMatch").classList.add("active");
-  setSection("🎮 Word Match");
-  newMatchRound();
+  document.getElementById("deckGames").classList.add("active");
+  setSection("🎮 Games");
+}
+// learned words first (so you can actually match them), then any seen words, then everything
+function learnedFirst(pairs) {
+  const learned = pairs.filter(([tl]) => (progress[tl] || {}).ok >= 3);
+  if (learned.length >= 5) return learned;
+  const seen = pairs.filter(([tl]) => progress[tl]);
+  return seen.length >= 5 ? seen : pairs;
 }
 function matchPool() {
   const words = [];
   Object.values(WORD_CATEGORIES).forEach(c => words.push(...c.words));
   words.push(...customWords);
-  // prioritize words you're actively learning (seen but not yet mastered) so the game reinforces them
-  const learning = words.filter(([tl]) => { const p = progress[tl]; return p && (p.ok || 0) < 3; });
-  return learning.length >= 5 ? learning : words;
+  return learnedFirst(words);
 }
 function newMatchRound() {
   matchSel = null;
@@ -3206,8 +3248,59 @@ function matchTap(tile) {
     setTimeout(() => { a.classList.remove("wrong"); b.classList.remove("wrong"); }, 500);
   }
 }
-document.getElementById("deckMatch").onclick = showMatchPanel;
+document.getElementById("deckGames").onclick = showGamesPanel;
+document.getElementById("gameWordMatch").onclick = () => { showOnlyGamePanel("matchPanel"); newMatchRound(); };
+document.getElementById("matchBack").onclick = showGamesPanel;
 document.getElementById("matchNew").onclick = newMatchRound;
+
+// ---------- 🎧 Listen & Pick: hear a word, choose its meaning (practice-only, trains listening) ----------
+let listenItem = null, listenAnswered = false;
+function listenPool() {
+  const words = [];
+  Object.values(WORD_CATEGORIES).forEach(c => words.push(...c.words));
+  words.push(...customWords);
+  // fold in learned sentences too, so it bridges toward understanding real phrases
+  Object.values(SENTENCE_CATS).forEach(c => c.words.forEach(w => { if ((progress[w[0]] || {}).ok >= 3) words.push(w); }));
+  return learnedFirst(words);
+}
+function newListenQ() {
+  listenAnswered = false;
+  const ved = document.getElementById("listenVerdict"); ved.textContent = ""; ved.className = "verdict";
+  const box = document.getElementById("listenChoices"); box.innerHTML = "";
+  const pool = listenPool();
+  if (pool.length < 2) { ved.textContent = "Learn a few words first, then come back."; return; }
+  listenItem = pool[Math.floor(Math.random() * pool.length)];
+  const [tl, en] = listenItem;
+  const opts = [en], seen = new Set([normAnswer(en)]), others = pool.slice();
+  while (opts.length < 4 && others.length) {
+    const e = others.splice(Math.floor(Math.random() * others.length), 1)[0][1];
+    const k = normAnswer(e); if (!seen.has(k)) { seen.add(k); opts.push(e); }
+  }
+  for (let i = opts.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [opts[i], opts[j]] = [opts[j], opts[i]]; }
+  opts.forEach(o => {
+    const b = document.createElement("button");
+    b.className = "choice"; b.textContent = o;
+    b.onclick = () => listenAnswer(b, o, en);
+    box.appendChild(b);
+  });
+  speak(tl); // play the word to identify
+}
+function listenAnswer(btn, choice, correct) {
+  if (listenAnswered) return;
+  listenAnswered = true;
+  const ved = document.getElementById("listenVerdict");
+  document.querySelectorAll("#listenChoices .choice").forEach(b => { b.disabled = true; if (b.textContent === correct) b.classList.add("correct"); });
+  if (choice === correct) {
+    ved.className = "verdict good"; ved.textContent = "✅ " + listenItem[0] + " = " + correct;
+    correctSound(); setTimeout(newListenQ, 1500);
+  } else {
+    btn.classList.add("wrong"); ved.className = "verdict bad"; ved.textContent = "❌ " + listenItem[0] + " = " + correct;
+    buzz(); setTimeout(newListenQ, 2400);
+  }
+}
+document.getElementById("gameListen").onclick = () => { showOnlyGamePanel("listenPanel"); newListenQ(); };
+document.getElementById("listenBack").onclick = showGamesPanel;
+document.getElementById("listenPlay").onclick = () => { if (listenItem) speak(listenItem[0]); };
 document.getElementById("importBtn").onclick = () => {
   const b = document.getElementById("importBox");
   b.style.display = b.style.display === "block" ? "none" : "block";
