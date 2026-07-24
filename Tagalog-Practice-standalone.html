@@ -31,7 +31,7 @@
 
   /* ➕ Add tab — a simple form for adding your own words/sentences to the test bank */
   #addPanel { display: none; margin-top: 8px; text-align: left; }
-  #homeScreen.adding > *:not(.deck-toggle):not(#addPanel) { display: none !important; }
+  #homeScreen.adding > *:not(.nav-bar):not(.deck-menu):not(#addPanel) { display: none !important; }
   #homeScreen.adding #addPanel { display: block; }
   .add-title { font-size: 1.3rem; font-weight: 700; margin-bottom: 12px; }
   .add-type { display: flex; gap: 8px; margin-bottom: 12px; }
@@ -57,7 +57,7 @@
 
   /* 🎤 Speak & Score */
   #speakPanel { display: none; margin-top: 8px; text-align: center; }
-  #homeScreen.speaking > *:not(.deck-toggle):not(#speakPanel) { display: none !important; }
+  #homeScreen.speaking > *:not(.nav-bar):not(.deck-menu):not(#speakPanel) { display: none !important; }
   #homeScreen.speaking #speakPanel { display: block; }
   #speakPanel .speak-sub { color: var(--muted); font-size: 1rem; margin-bottom: 16px; font-weight: 400; }
   .speak-card { background: var(--card); border: 1px solid #3a4054; border-radius: 16px; padding: 22px 16px; margin-bottom: 16px; }
@@ -79,16 +79,25 @@
 
   /* home screen */
   #homeScreen { width: 100%; max-width: 680px; }
-  .deck-toggle {
-    display: flex; gap: 6px; background: var(--card); border-radius: 999px;
-    padding: 6px; margin-bottom: 14px; width: fit-content; margin-left: auto; margin-right: auto;
+  /* ☰ menu nav (replaces the old sideways-scrolling tab bar) */
+  .nav-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .menu-btn {
+    background: var(--card); border: 1px solid #3a4054; color: var(--text);
+    font-size: 1.4rem; line-height: 1; border-radius: 12px; padding: 10px 14px; cursor: pointer;
   }
-  .deck-toggle button {
-    background: none; border: none; color: var(--muted); cursor: pointer;
-    font-size: 1.2rem; font-weight: 600; padding: 10px 24px; border-radius: 999px;
-    transition: background .12s, color .12s;
+  .menu-btn:active { background: #2e3342; }
+  .current-section { font-size: 1.3rem; font-weight: 700; }
+  .deck-menu {
+    display: none; flex-direction: column; gap: 4px; margin-bottom: 16px;
+    background: var(--card); border: 1px solid #3a4054; border-radius: 14px; padding: 8px;
   }
-  .deck-toggle button.active { background: var(--accent); color: #fff; }
+  .deck-menu.open { display: flex; }
+  .deck-menu button {
+    background: none; border: none; color: var(--text); cursor: pointer; text-align: left;
+    font-size: 1.25rem; font-weight: 600; padding: 15px 16px; border-radius: 10px;
+  }
+  .deck-menu button:active { background: #2e3342; }
+  .deck-menu button.active { background: var(--accent); color: #fff; }
   .learned-banner {
     background: var(--card); border-radius: 14px; padding: 14px 18px;
     text-align: center; font-size: 1.3rem; font-weight: 600; margin-bottom: 14px;
@@ -319,13 +328,17 @@
 
   <!-- HOME -->
   <div id="homeScreen">
-    <div class="deck-toggle">
+    <div class="nav-bar">
+      <button id="menuBtn" class="menu-btn" type="button" aria-label="Menu">☰</button>
+      <div id="currentSection" class="current-section">📚 Words</div>
+    </div>
+    <div class="deck-menu" id="deckMenu">
       <button id="deckWords" class="active">📚 Words</button>
       <button id="deckSentences">💬 Sentences</button>
       <button id="deckConj">🧩 Conjugation</button>
       <button id="deckJudge">🤔 Makes Sense?</button>
-      <button id="deckAdd">➕ Add</button>
-      <button id="deckSpeak">🎤 Speak</button>
+      <button id="deckAdd">➕ Add words / sentences</button>
+      <button id="deckSpeak">🎤 Speak &amp; Score</button>
     </div>
     <!-- ➕ Add tab: anyone (e.g. a native speaker) can add their own words/sentences — and alternate
          ways to say something — straight into the test bank. Shown only when the Add tab is active. -->
@@ -1554,7 +1567,17 @@ function updateDeckToggle() {
     const el = document.getElementById(id);
     if (el) el.classList.toggle("active", deckMode === mode);
   });
+  // reflect the active deck in the ☰ menu header (unless an Add/Speak panel owns it)
+  const home = document.getElementById("homeScreen");
+  if (home && !home.classList.contains("adding") && !home.classList.contains("speaking")) {
+    const activeBtn = document.getElementById(ids[deckMode]);
+    const cur = document.getElementById("currentSection");
+    if (activeBtn && cur) cur.textContent = activeBtn.textContent;
+    ["deckAdd", "deckSpeak"].forEach(id => { const b = document.getElementById(id); if (b) b.classList.remove("active"); });
+  }
 }
+function closeMenu() { document.getElementById("deckMenu").classList.remove("open"); }
+function setSection(label) { document.getElementById("currentSection").textContent = label; }
 
 // ---------- state ----------
 let progress = JSON.parse(localStorage.getItem(LS.prog) || "{}"); // {key: {ok, miss, box, due}}
@@ -2847,14 +2870,16 @@ document.getElementById("deleteSoundBtn").onclick = async () => {
 document.getElementById("newCapSelect").onchange = e => { localStorage.setItem(NEWCAP_KEY, e.target.value); renderHome(); };
 document.getElementById("revSelect").onchange = e => { localStorage.setItem(REV_KEY, e.target.value); renderHome(); };
 document.getElementById("phraseSelect").onchange = e => { localStorage.setItem(PHRASE_KEY, e.target.value); };
-document.getElementById("deckWords").onclick = () => { hidePanels(); setDeck("words"); };
-document.getElementById("deckSentences").onclick = () => { hidePanels(); setDeck("sentences"); };
-document.getElementById("deckConj").onclick = () => { hidePanels(); setDeck("conj"); };
-document.getElementById("deckJudge").onclick = () => { hidePanels(); setDeck("judge"); };
+// ☰ menu: tap to open the section list; picking one closes it.
+document.getElementById("menuBtn").onclick = () => document.getElementById("deckMenu").classList.toggle("open");
+document.getElementById("deckWords").onclick = () => { closeMenu(); hidePanels(); setDeck("words"); };
+document.getElementById("deckSentences").onclick = () => { closeMenu(); hidePanels(); setDeck("sentences"); };
+document.getElementById("deckConj").onclick = () => { closeMenu(); hidePanels(); setDeck("conj"); };
+document.getElementById("deckJudge").onclick = () => { closeMenu(); hidePanels(); setDeck("judge"); };
 
 // Home-screen panels (Add / Speak) are not real decks — they overlay the home body. hidePanels()
 // closes both and re-lights the current deck's pill (setDeck early-returns if the deck is unchanged).
-function hidePanels() { hideAddPanel(); hideSpeakPanel(); updateDeckToggle(); }
+function hidePanels() { closeMenu(); hideAddPanel(); hideSpeakPanel(); updateDeckToggle(); }
 
 // ---------- ➕ Add tab: add your own words/sentences to the test bank ----------
 let addType = "word"; // "word" -> customWords (Words deck) | "sentence" -> customSentences (Sentences deck)
@@ -2863,11 +2888,13 @@ function hideAddPanel() {
   document.getElementById("deckAdd").classList.remove("active");
 }
 function showAddPanel() {
+  closeMenu();
   hideSpeakPanel();
   document.getElementById("homeScreen").classList.add("adding");
-  // the real decks each own an "active" pill; light up Add and clear the others
+  // light up Add in the menu and clear the others
   ["deckWords", "deckSentences", "deckConj", "deckJudge", "deckSpeak"].forEach(id => document.getElementById(id).classList.remove("active"));
   document.getElementById("deckAdd").classList.add("active");
+  setSection("➕ Add words / sentences");
   renderCustomList();
 }
 function setAddType(t) {
@@ -2938,10 +2965,12 @@ function hideSpeakPanel() {
   stopListening();
 }
 function showSpeakPanel() {
+  closeMenu();
   hideAddPanel();
   document.getElementById("homeScreen").classList.add("speaking");
   ["deckWords", "deckSentences", "deckConj", "deckJudge", "deckAdd"].forEach(id => document.getElementById(id).classList.remove("active"));
   document.getElementById("deckSpeak").classList.add("active");
+  setSection("🎤 Speak & Score");
   newSpeakWord(); // sets the word + clears the result area first
   const res = document.getElementById("speakResult"), mic = document.getElementById("speakMic");
   if (!SpeechRec) {
