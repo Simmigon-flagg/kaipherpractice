@@ -3235,11 +3235,11 @@ function matchTap(tile) {
   if (matchSel.dataset.key === tile.dataset.key) { // correct pair
     tile.classList.add("matched"); matchSel.classList.add("matched");
     tile.classList.remove("sel"); matchSel.classList.remove("sel");
-    speak(tile.dataset.key); // hear the Tagalog you just matched
+    correctSound();            // ding on every correct pair
+    speak(tile.dataset.key);   // and hear the Tagalog you just matched
     matchSel = null; matchLeft--;
     if (matchLeft <= 0) {
       document.getElementById("matchStatus").textContent = "✅ Nice! Next set…";
-      correctSound();
       setTimeout(newMatchRound, 1200);
     }
   } else { // wrong
