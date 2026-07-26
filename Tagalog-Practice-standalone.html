@@ -59,6 +59,21 @@
   #speakPanel { display: none; margin-top: 8px; text-align: center; }
   #homeScreen.speaking > *:not(.nav-bar):not(.deck-menu):not(#speakPanel) { display: none !important; }
   #homeScreen.speaking #speakPanel { display: block; }
+
+  /* 📖 Learned list */
+  #learnedPanel { display: none; margin-top: 8px; text-align: left; }
+  #homeScreen.listing > *:not(.nav-bar):not(.deck-menu):not(#learnedPanel) { display: none !important; }
+  #homeScreen.listing #learnedPanel { display: block; }
+  .learned-count { color: var(--muted); font-size: 1rem; margin-bottom: 12px; }
+  #learnedSearch { width: 100%; box-sizing: border-box; background: #2e3342; color: var(--text);
+    border: 2px solid #3a4054; border-radius: 12px; padding: 12px 14px; font-size: 1.1rem; margin-bottom: 14px; }
+  #learnedSearch:focus { outline: none; border-color: var(--accent); }
+  .learned-section { font-size: 1.1rem; font-weight: 700; color: var(--muted); margin: 14px 0 8px; }
+  .learned-item { display: flex; justify-content: space-between; gap: 12px; align-items: center;
+    background: var(--card); border: 1px solid #3a4054; border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; cursor: pointer; }
+  .learned-item .li-tl { font-weight: 600; word-break: break-word; }
+  .learned-item .li-en { color: var(--muted); font-size: .95rem; text-align: right; word-break: break-word; }
+  .learned-empty { color: var(--muted); text-align: center; padding: 16px; }
   #speakPanel .speak-sub { color: var(--muted); font-size: 1rem; margin-bottom: 16px; font-weight: 400; }
   .speak-card { background: var(--card); border: 1px solid #3a4054; border-radius: 16px; padding: 22px 16px; margin-bottom: 16px; }
   .speak-tl { font-size: 2rem; font-weight: 700; word-break: break-word; }
@@ -370,6 +385,7 @@
       <button id="deckConj">🧩 Conjugation</button>
       <button id="deckJudge">🤔 Makes Sense?</button>
       <button id="deckGames">🎮 Games</button>
+      <button id="deckLearned">📖 Words &amp; sentences I know</button>
       <button id="deckAdd">➕ Add words / sentences</button>
       <button id="deckSpeak">🎤 Speak &amp; Score</button>
     </div>
@@ -407,6 +423,13 @@
           <option value="sentences">Sentences</option>
         </select>
       </div>
+    </div>
+    <!-- 📖 Learned: a searchable list of every word & sentence you've mastered (ok>=3), any deck. -->
+    <div id="learnedPanel">
+      <div class="add-title">📖 Words &amp; Sentences You Know</div>
+      <div id="learnedCount" class="learned-count"></div>
+      <input type="text" id="learnedSearch" placeholder="search…" autocomplete="off" autocapitalize="off">
+      <div id="learnedList"></div>
     </div>
     <!-- 🎮 Games hub: pick a game. Games are PRACTICE-ONLY — they never change mastery/schedule. -->
     <div id="gamesPanel" class="game-view">
@@ -1657,11 +1680,11 @@ function updateDeckToggle() {
   });
   // reflect the active deck in the ☰ menu header (unless an Add/Speak/Games panel owns it)
   const home = document.getElementById("homeScreen");
-  if (home && !home.classList.contains("adding") && !home.classList.contains("speaking") && !home.classList.contains("gaming")) {
+  if (home && !home.classList.contains("adding") && !home.classList.contains("speaking") && !home.classList.contains("gaming") && !home.classList.contains("listing")) {
     const activeBtn = document.getElementById(ids[deckMode]);
     const cur = document.getElementById("currentSection");
     if (activeBtn && cur) cur.textContent = activeBtn.textContent;
-    ["deckAdd", "deckSpeak", "deckGames"].forEach(id => { const b = document.getElementById(id); if (b) b.classList.remove("active"); });
+    ["deckAdd", "deckSpeak", "deckGames", "deckLearned"].forEach(id => { const b = document.getElementById(id); if (b) b.classList.remove("active"); });
   }
 }
 function closeMenu() { document.getElementById("deckMenu").classList.remove("open"); }
@@ -2967,7 +2990,7 @@ document.getElementById("deckJudge").onclick = () => { closeMenu(); hidePanels()
 
 // Home-screen panels (Add / Speak) are not real decks — they overlay the home body. hidePanels()
 // closes both and re-lights the current deck's pill (setDeck early-returns if the deck is unchanged).
-function hidePanels() { closeMenu(); hideAddPanel(); hideSpeakPanel(); hideGamesPanel(); updateDeckToggle(); }
+function hidePanels() { closeMenu(); hideAddPanel(); hideSpeakPanel(); hideGamesPanel(); hideLearnedPanel(); updateDeckToggle(); }
 
 // ---------- ➕ Add tab: add your own words/sentences to the test bank ----------
 let addType = "word"; // "word" -> customWords (Words deck) | "sentence" -> customSentences (Sentences deck)
@@ -2977,10 +3000,10 @@ function hideAddPanel() {
 }
 function showAddPanel() {
   closeMenu();
-  hideSpeakPanel(); hideGamesPanel();
+  hideSpeakPanel(); hideGamesPanel(); hideLearnedPanel();
   document.getElementById("homeScreen").classList.add("adding");
   // light up Add in the menu and clear the others
-  ["deckWords", "deckSentences", "deckConj", "deckJudge", "deckSpeak", "deckGames"].forEach(id => document.getElementById(id).classList.remove("active"));
+  ["deckWords", "deckSentences", "deckConj", "deckJudge", "deckSpeak", "deckGames", "deckLearned"].forEach(id => document.getElementById(id).classList.remove("active"));
   document.getElementById("deckAdd").classList.add("active");
   setSection("➕ Add words / sentences");
   renderCustomList();
@@ -3054,9 +3077,9 @@ function hideSpeakPanel() {
 }
 function showSpeakPanel() {
   closeMenu();
-  hideAddPanel(); hideGamesPanel();
+  hideAddPanel(); hideGamesPanel(); hideLearnedPanel();
   document.getElementById("homeScreen").classList.add("speaking");
-  ["deckWords", "deckSentences", "deckConj", "deckJudge", "deckAdd", "deckGames"].forEach(id => document.getElementById(id).classList.remove("active"));
+  ["deckWords", "deckSentences", "deckConj", "deckJudge", "deckAdd", "deckGames", "deckLearned"].forEach(id => document.getElementById(id).classList.remove("active"));
   document.getElementById("deckSpeak").classList.add("active");
   setSection("🎤 Speak & Score");
   newSpeakWord(); // sets the word + clears the result area first
@@ -3192,6 +3215,50 @@ document.getElementById("speakPlay").onclick = () => { if (speakItem) speak(spea
 document.getElementById("speakSkip").onclick = () => { stopListening(); newSpeakWord(); };
 document.getElementById("speakScope").onchange = newSpeakWord;
 
+// ---------- 📖 Learned: searchable list of every word & sentence you've mastered (ok>=3) ----------
+function hideLearnedPanel() {
+  document.getElementById("homeScreen").classList.remove("listing");
+  const b = document.getElementById("deckLearned"); if (b) b.classList.remove("active");
+}
+function showLearnedPanel() {
+  closeMenu(); hideAddPanel(); hideSpeakPanel(); hideGamesPanel();
+  document.getElementById("homeScreen").classList.add("listing");
+  ["deckWords", "deckSentences", "deckConj", "deckJudge", "deckGames", "deckAdd", "deckSpeak"].forEach(id => document.getElementById(id).classList.remove("active"));
+  document.getElementById("deckLearned").classList.add("active");
+  setSection("📖 Learned");
+  document.getElementById("learnedSearch").value = "";
+  renderLearnedList("");
+}
+function learnedBuckets() {
+  const words = [], sentences = [], seen = new Set();
+  const add = (arr, bucket) => arr.forEach(w => { const tl = w[0]; if ((progress[tl] || {}).ok >= 3 && !seen.has(tl)) { seen.add(tl); bucket.push(w); } });
+  Object.values(WORD_CATEGORIES).forEach(c => add(c.words, words));
+  Object.values(CONJ_CATS).forEach(c => add(c.words, words));
+  add(customWords, words);
+  Object.values(SENTENCE_CATS).forEach(c => add(c.words, sentences));
+  add(customSentences, sentences);
+  return { words, sentences };
+}
+function renderLearnedList(q) {
+  const { words, sentences } = learnedBuckets();
+  const ql = (q || "").toLowerCase().trim();
+  const match = w => !ql || (w[0] + "").toLowerCase().includes(ql) || (w[1] + "").toLowerCase().includes(ql);
+  const fw = words.filter(match), fs = sentences.filter(match);
+  document.getElementById("learnedCount").textContent =
+    (words.length + sentences.length) + " learned · " + words.length + " words, " + sentences.length + " sentences";
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const item = w => '<div class="learned-item" data-tl="' + esc(w[0]) + '"><span class="li-tl">' + esc(w[0]) + '</span><span class="li-en">' + esc(w[1]) + '</span></div>';
+  let html = "";
+  if (fw.length) html += '<div class="learned-section">📚 Words (' + fw.length + ')</div>' + fw.map(item).join("");
+  if (fs.length) html += '<div class="learned-section">💬 Sentences (' + fs.length + ')</div>' + fs.map(item).join("");
+  if (!html) html = '<div class="learned-empty">' + (ql ? "No matches." : "Nothing learned yet — practice to fill this up.") + '</div>';
+  const list = document.getElementById("learnedList");
+  list.innerHTML = html;
+  list.querySelectorAll(".learned-item").forEach(el => el.onclick = () => speak(el.dataset.tl)); // tap to hear it
+}
+document.getElementById("deckLearned").onclick = showLearnedPanel;
+document.getElementById("learnedSearch").addEventListener("input", e => renderLearnedList(e.target.value));
+
 // ---------- 🎮 Word Match: pair Tagalog with meaning. PRACTICE-ONLY (no SRS/mastery changes) ----------
 let matchSel = null, matchLeft = 0;
 let rushTimer = null, rushHearts = 0, rushScore = 0, rushCombo = 0, rushItem = null, rushDuration = 0, rushRemain = 0, rushBusy = false;
@@ -3205,10 +3272,10 @@ function hideGamesPanel() {
   const b = document.getElementById("deckGames"); if (b) b.classList.remove("active");
 }
 function showGamesPanel() {
-  closeMenu(); hideAddPanel(); hideSpeakPanel();
+  closeMenu(); hideAddPanel(); hideSpeakPanel(); hideLearnedPanel();
   document.getElementById("homeScreen").classList.add("gaming");
   showOnlyGamePanel("gamesPanel");
-  ["deckWords", "deckSentences", "deckConj", "deckJudge", "deckAdd", "deckSpeak"].forEach(id => document.getElementById(id).classList.remove("active"));
+  ["deckWords", "deckSentences", "deckConj", "deckJudge", "deckAdd", "deckSpeak", "deckLearned"].forEach(id => document.getElementById(id).classList.remove("active"));
   document.getElementById("deckGames").classList.add("active");
   setSection("🎮 Games");
 }
