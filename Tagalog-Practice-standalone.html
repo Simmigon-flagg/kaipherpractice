@@ -2182,9 +2182,17 @@ function sayUtterance(u) {
   try { speechSynthesis.cancel(); } catch (e) {}
   setTimeout(() => { try { speechSynthesis.speak(u); } catch (e) {} }, 70);
 }
+// Pronunciation overrides — the TTS reads these respellings so names sound right. The DISPLAYED
+// text is unchanged; this only rewrites what's sent to the voice. (Owner: Simmigon = "Sim-me-yon".)
+const PRONOUNCE = { "Simmigon": "Simmiyon" };
+function ttsText(text) {
+  let t = String(text);
+  for (const k in PRONOUNCE) t = t.split(k).join(PRONOUNCE[k]);
+  return t;
+}
 function speakFallback(word) {
   if ("speechSynthesis" in window) {
-    const u = new SpeechSynthesisUtterance(word);
+    const u = new SpeechSynthesisUtterance(ttsText(word));
     if (filVoice) { u.voice = filVoice; u.lang = filVoice.lang; }
     else { u.lang = "fil-PH"; } // no installed Filipino voice — still ask the OS engine, don't go silent
     u.rate = ttsSpeed();
@@ -2195,7 +2203,7 @@ function speakFallback(word) {
 }
 function speak(word) {
   if (gttsOk) {
-    const url = "https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=tl&q=" + encodeURIComponent(word);
+    const url = "https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=tl&q=" + encodeURIComponent(ttsText(word));
     // Reuse the single blessed element so the CURRENT word auto-plays on arrival (iOS blocks a
     // fresh `new Audio()` each time). Same Google tl voice — timing only.
     const a = ttsAudio;
@@ -2216,7 +2224,7 @@ function speak(word) {
     return;
   }
   if (filVoice) {
-    const u = new SpeechSynthesisUtterance(word);
+    const u = new SpeechSynthesisUtterance(ttsText(word));
     u.voice = filVoice; u.lang = filVoice.lang; u.rate = ttsSpeed();
     sayUtterance(u);
     return;
@@ -2224,7 +2232,7 @@ function speak(word) {
   showPrompt(true);
 }
 function speakEnglish(text) {
-  const u = new SpeechSynthesisUtterance(text.replace(/\s*\/\s*/g, ", ").replace(/\(.*?\)/g, ""));
+  const u = new SpeechSynthesisUtterance(ttsText(text).replace(/\s*\/\s*/g, ", ").replace(/\(.*?\)/g, ""));
   if (enVoice) u.voice = enVoice;
   u.lang = "en-US";
   u.rate = 1.0;
