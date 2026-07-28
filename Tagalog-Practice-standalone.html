@@ -215,6 +215,8 @@
     font-size: .95rem; color: var(--muted); margin: -6px 0 10px; }
   #tlLegend span { white-space: nowrap; }
   #tlLegend b { font-weight: 700; }
+  .convo-en { color: var(--muted); font-size: 1.05rem; font-style: italic; white-space: normal; }
+  .choice .choice-en { font-size: .82rem; color: var(--muted); font-weight: 400; margin-top: 3px; font-style: italic; }
   .hidden-word { color: var(--muted); font-size: 1.2rem; }
   .play-btn {
     background: var(--accent); border: none; color: white; font-size: 1.4rem;
@@ -1680,26 +1682,30 @@ const PHRASE_DATA = (typeof PHRASES !== "undefined") ? PHRASES : {};
 // Conversation pairs [line, natural reply] — both Tagalog. Used by BOTH the 🗣️ Conversation Match
 // game and the Conversation study deck. Built-ins are common exchanges (native-check recommended);
 // Jovy can add her own via the ➕ Add tab (they land in customConvo).
+// Each: [line, reply, line-English, reply-English] — so the app can SHOW what everything means.
 const CONVO_PAIRS = [
-  ["Kumusta ka na?", "Mabuti naman, salamat."],
-  ["Anong pangalan mo?", "Ako si Simmigon."],
-  ["Salamat!", "Walang anuman."],
-  ["Magandang umaga.", "Magandang umaga rin."],
-  ["Magandang gabi.", "Magandang gabi rin."],
-  ["Ingat ka.", "Ikaw rin, ingat."],
-  ["Saan ka pupunta?", "Pupunta ako sa palengke."],
-  ["Kumain ka na ba?", "Oo, kumain na ako."],
-  ["Gutom ka na ba?", "Oo, gutom na ako."],
-  ["Anong oras na?", "Alas-dose na."],
-  ["Nasaan ka?", "Nasa bahay ako."],
-  ["Anong ginagawa mo?", "Nagluluto ako."],
-  ["Magkano ito?", "Singkwenta pesos."],
-  ["Masarap ba?", "Oo, masarap!"],
-  ["Pasensya na.", "Okay lang."],
-  ["Mahal kita.", "Mahal din kita."],
-  ["Paalam!", "Paalam, ingat."],
-  ["Pwede ba kitang tulungan?", "Oo, salamat."]
+  ["Kumusta ka na?", "Mabuti naman, salamat.", "How are you?", "I'm doing well, thanks."],
+  ["Anong pangalan mo?", "Ako si Simmigon.", "What's your name?", "I'm Simmigon."],
+  ["Salamat!", "Walang anuman.", "Thank you!", "You're welcome."],
+  ["Magandang umaga.", "Magandang umaga rin.", "Good morning.", "Good morning too."],
+  ["Magandang gabi.", "Magandang gabi rin.", "Good evening.", "Good evening too."],
+  ["Ingat ka.", "Ikaw rin, ingat.", "Take care.", "You too, take care."],
+  ["Saan ka pupunta?", "Pupunta ako sa palengke.", "Where are you going?", "I'm going to the market."],
+  ["Kumain ka na ba?", "Oo, kumain na ako.", "Have you eaten?", "Yes, I've eaten."],
+  ["Gutom ka na ba?", "Oo, gutom na ako.", "Are you hungry?", "Yes, I'm hungry."],
+  ["Anong oras na?", "Alas-dose na.", "What time is it?", "It's twelve o'clock."],
+  ["Nasaan ka?", "Nasa bahay ako.", "Where are you?", "I'm at home."],
+  ["Anong ginagawa mo?", "Nagluluto ako.", "What are you doing?", "I'm cooking."],
+  ["Magkano ito?", "Singkwenta pesos.", "How much is this?", "Fifty pesos."],
+  ["Masarap ba?", "Oo, masarap!", "Is it delicious?", "Yes, it's delicious!"],
+  ["Pasensya na.", "Okay lang.", "Sorry.", "It's okay."],
+  ["Mahal kita.", "Mahal din kita.", "I love you.", "I love you too."],
+  ["Paalam!", "Paalam, ingat.", "Goodbye!", "Goodbye, take care."],
+  ["Pwede ba kitang tulungan?", "Oo, salamat.", "Can I help you?", "Yes, thank you."]
 ];
+// English lookup for any conversation line or reply (so it can be shown next to the Tagalog).
+const CONVO_EN = {};
+CONVO_PAIRS.forEach(p => { if (p[2]) CONVO_EN[p[0]] = p[2]; if (p[3]) CONVO_EN[p[1]] = p[3]; });
 function allConvoPairs() { return CONVO_PAIRS.concat(customConvo); }              // built-in + Jovy's, as [line, reply]
 function convoRows() { return allConvoPairs().map(p => [p[0], p[1], "convo"]); }  // tagged rows for the study deck
 
@@ -2797,9 +2803,12 @@ function nextQuestion() {
       const j = Math.floor(Math.random() * (i + 1));
       [options[i], options[j]] = [options[j], options[i]];
     }
+    const escC = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
     options.forEach(opt => {
       const b = document.createElement("button");
-      b.className = "choice"; b.textContent = opt;
+      b.className = "choice"; b.dataset.val = opt; // compare on this, not textContent (which may include the English line)
+      if (current.convo && CONVO_EN[opt]) b.innerHTML = escC(opt) + '<div class="choice-en">' + escC(CONVO_EN[opt]) + '</div>';
+      else b.textContent = opt;
       b.onclick = () => answer(b, opt);
       box.appendChild(b);
     });
@@ -2816,8 +2825,10 @@ function nextQuestion() {
     document.getElementById("catLabel").textContent = currentCat + " · 🤔 makes sense?";
     speak(tl);
   } else if (current.convo) {
-    // conversation: show + speak the line, then you pick the right reply
+    // conversation: show + speak the line (with its English so you know what's being asked)
     setWordDisplay(wd, tl, true); wd.className = "tl-word";
+    const leg = document.getElementById("tlLegend"), lineEN = CONVO_EN[tl] || "";
+    if (leg) { leg.innerHTML = lineEN ? '<span class="convo-en">' + lineEN.replace(/</g, "&lt;") + '</span>' : ""; leg.style.display = lineEN ? "flex" : "none"; }
     document.getElementById("catLabel").textContent = currentCat + " · 🗣 pick the reply";
     speak(tl);
   } else if (rev) {
@@ -2856,7 +2867,7 @@ function answer(btn, choice) {
     if (choice === target) { correctSound(); score++; btn.classList.add("correct"); } // same win sound as the rest of the app
     else {
       buzz(); btn.classList.add("wrong");
-      document.querySelectorAll(".choice").forEach(b => { if (b.textContent === target) b.classList.add("correct"); });
+      document.querySelectorAll(".choice").forEach(b => { if ((b.dataset.val || b.textContent) === target) b.classList.add("correct"); });
     }
     document.querySelectorAll(".choice").forEach(b => b.disabled = true);
     document.getElementById("score").textContent = score;
@@ -2866,7 +2877,7 @@ function answer(btn, choice) {
   document.querySelectorAll(".choice").forEach(b => {
     b.disabled = true;
     if (b === btn && choice !== target) b.classList.add("wrong");
-    if (b.textContent === target) b.classList.add(choice === target && b === btn ? "correct" : "correct");
+    if ((b.dataset.val || b.textContent) === target) b.classList.add("correct");
   });
   finishAnswer(choice === target);
 }
@@ -2926,7 +2937,10 @@ function finishAnswer(ok) {
       // reinforcement starts at +800ms; size the wait to when that readback should finish, so a
       // long sentence still isn't clipped (the universal 5s floor below covers short items)
       if (rev) { laterSpeak(() => speak(tl), 800); waitMs = 800 + estSpeakMs(tl, true) + 500; }        // repeat the Tagalog you produced
-      else if (current.convo) { laterSpeak(() => speak(en), 800); waitMs = 800 + estSpeakMs(en, true) + 500; } // speak the REPLY in the Tagalog voice
+      else if (current.convo) { // speak the REPLY in the Tagalog voice, and show the English of both sides
+        laterSpeak(() => speak(en), 800); waitMs = 800 + estSpeakMs(en, true) + 500;
+        document.getElementById("phraseBox").innerHTML = '<div class="phrase-en">' + (CONVO_EN[tl] || "") + " → " + (CONVO_EN[en] || "") + '</div>';
+      }
       else { laterSpeak(() => speakEnglish(en), 800); waitMs = 800 + estSpeakMs(en, false) + 500; }    // say the English meaning after the bell
       if (!rev && phrasesOn() && PHRASE_DATA[tl]) {
         const [ptl, pen] = PHRASE_DATA[tl];
@@ -2950,8 +2964,9 @@ function finishAnswer(ok) {
       document.getElementById("phraseBox").innerHTML = '<div class="phrase-en">' + current.expl + '</div>';
       waitMs = 2800; // reading the explanation on a miss
     } else {
-      v.textContent = "❌ " + tl + " = " + en;
+      v.textContent = "❌ " + tl + (current.convo ? " → " : " = ") + en;
       v.className = "verdict bad";
+      if (current.convo) document.getElementById("phraseBox").innerHTML = '<div class="phrase-en">' + (CONVO_EN[tl] || "") + " → " + (CONVO_EN[en] || "") + '</div>';
     }
   }
   saveDaily(d);
