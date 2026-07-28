@@ -123,8 +123,9 @@
   .match-col { flex: 1; display: flex; flex-direction: column; gap: 8px; }
   /* every tile identical size so the grid is even */
   .match-tile { display: flex; align-items: center; justify-content: center; text-align: center;
-    height: 64px; padding: 6px 8px; background: var(--card); border: 2px solid #3a4054; color: var(--text);
-    border-radius: 12px; font-size: 1.1rem; font-weight: 600; line-height: 1.15; cursor: pointer; overflow: hidden; }
+    height: 50px; padding: 5px 7px; background: var(--card); border: 2px solid #3a4054; color: var(--text);
+    border-radius: 10px; font-size: 1rem; font-weight: 600; line-height: 1.1; cursor: pointer; overflow: hidden; }
+  .match-col { gap: 7px; }
   .match-tile.sel { border-color: var(--accent); background: #2e3342; }
   .match-tile.matched { border-color: var(--good); color: var(--good); opacity: .4; pointer-events: none; }
   .match-tile.wrong { border-color: var(--bad); animation: ttflash .4s steps(1) 2; }
@@ -3011,7 +3012,23 @@ document.getElementById("deckJudge").onclick = () => { closeMenu(); hidePanels()
 
 // Home-screen panels (Add / Speak) are not real decks — they overlay the home body. hidePanels()
 // closes both and re-lights the current deck's pill (setDeck early-returns if the deck is unchanged).
-function hidePanels() { closeMenu(); hideAddPanel(); hideSpeakPanel(); hideGamesPanel(); hideLearnedPanel(); updateDeckToggle(); }
+// Remember which view you're on so a refresh reopens it instead of dumping you back to the home deck.
+const VIEW_KEY = "tq_view";
+function saveView(v) { try { localStorage.setItem(VIEW_KEY, v); } catch (e) {} }
+function hidePanels() { closeMenu(); hideAddPanel(); hideSpeakPanel(); hideGamesPanel(); hideLearnedPanel(); updateDeckToggle(); saveView("home"); }
+function restoreView() {
+  let v = "home"; try { v = localStorage.getItem(VIEW_KEY) || "home"; } catch (e) {}
+  try {
+    if (v === "add") showAddPanel();
+    else if (v === "speak") showSpeakPanel();
+    else if (v === "learned") showLearnedPanel();
+    else if (v === "games") showGamesPanel();
+    else if (v === "game:match") { showGamesPanel(); showOnlyGamePanel("matchPanel"); newMatchRound(); saveView(v); }
+    else if (v === "game:listen") { showGamesPanel(); showOnlyGamePanel("listenPanel"); newListenQ(); saveView(v); }
+    else if (v === "game:rush") { showGamesPanel(); showOnlyGamePanel("rushPanel"); startRush(); saveView(v); }
+    else if (v === "game:mem") { showGamesPanel(); showOnlyGamePanel("memPanel"); newMemRound(); saveView(v); }
+  } catch (e) {}
+}
 
 // ---------- ➕ Add tab: add your own words/sentences to the test bank ----------
 let addType = "word"; // "word" -> customWords (Words deck) | "sentence" -> customSentences (Sentences deck)
@@ -3028,6 +3045,7 @@ function showAddPanel() {
   document.getElementById("deckAdd").classList.add("active");
   setSection("➕ Add words / sentences");
   renderCustomList();
+  saveView("add");
 }
 function setAddType(t) {
   addType = t;
@@ -3103,6 +3121,7 @@ function showSpeakPanel() {
   ["deckWords", "deckSentences", "deckConj", "deckJudge", "deckAdd", "deckGames", "deckLearned"].forEach(id => document.getElementById(id).classList.remove("active"));
   document.getElementById("deckSpeak").classList.add("active");
   setSection("🎤 Speak & Score");
+  saveView("speak");
   newSpeakWord(); // sets the word + clears the result area first
   const res = document.getElementById("speakResult"), mic = document.getElementById("speakMic");
   if (!SpeechRec) {
@@ -3249,6 +3268,7 @@ function showLearnedPanel() {
   setSection("📖 Learned");
   document.getElementById("learnedSearch").value = "";
   renderLearnedList("");
+  saveView("learned");
 }
 function learnedBuckets() {
   const words = [], sentences = [], seen = new Set();
@@ -3299,6 +3319,7 @@ function showGamesPanel() {
   ["deckWords", "deckSentences", "deckConj", "deckJudge", "deckAdd", "deckSpeak", "deckLearned"].forEach(id => document.getElementById(id).classList.remove("active"));
   document.getElementById("deckGames").classList.add("active");
   setSection("🎮 Games");
+  saveView("games");
 }
 // learned words first (so you can actually match them), then any seen words, then everything
 function learnedFirst(pairs) {
@@ -3317,7 +3338,7 @@ function newMatchRound() {
   matchSel = null;
   const pool = matchPool().slice();
   const picks = [], seenEn = new Set();
-  while (picks.length < 5 && pool.length) {
+  while (picks.length < 7 && pool.length) {
     const [tl, en] = pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
     const k = normAnswer(en);
     if (!seenEn.has(k)) { seenEn.add(k); picks.push([tl, en]); } // distinct meanings so matches aren't ambiguous
@@ -3365,7 +3386,7 @@ function matchTap(tile) {
   }
 }
 document.getElementById("deckGames").onclick = showGamesPanel;
-document.getElementById("gameWordMatch").onclick = () => { showOnlyGamePanel("matchPanel"); newMatchRound(); };
+document.getElementById("gameWordMatch").onclick = () => { showOnlyGamePanel("matchPanel"); newMatchRound(); saveView("game:match"); };
 document.getElementById("matchBack").onclick = showGamesPanel;
 document.getElementById("matchNew").onclick = newMatchRound;
 
@@ -3416,7 +3437,7 @@ function listenAnswer(btn, choice, correct) {
     buzz(); setTimeout(newListenQ, 2400);
   }
 }
-document.getElementById("gameListen").onclick = () => { showOnlyGamePanel("listenPanel"); newListenQ(); };
+document.getElementById("gameListen").onclick = () => { showOnlyGamePanel("listenPanel"); newListenQ(); saveView("game:listen"); };
 document.getElementById("listenBack").onclick = showGamesPanel;
 document.getElementById("listenPlay").onclick = () => { if (listenItem) speak(listenItem[0]); };
 
@@ -3495,7 +3516,7 @@ function rushGameOver() {
   document.getElementById("rushAgain").onclick = startRush;
   updateRushHud();
 }
-document.getElementById("gameRush").onclick = () => { showOnlyGamePanel("rushPanel"); startRush(); };
+document.getElementById("gameRush").onclick = () => { showOnlyGamePanel("rushPanel"); startRush(); saveView("game:rush"); };
 document.getElementById("rushBack").onclick = () => { clearInterval(rushTimer); showGamesPanel(); };
 
 // ---------- 🃏 Memory Match: flip two cards to find a word + its meaning (practice-only) ----------
@@ -3543,7 +3564,7 @@ function memTap(card) {
     setTimeout(() => { memUnflip(a); memUnflip(b); memLock = false; }, 950);
   }
 }
-document.getElementById("gameMemory").onclick = () => { showOnlyGamePanel("memPanel"); newMemRound(); };
+document.getElementById("gameMemory").onclick = () => { showOnlyGamePanel("memPanel"); newMemRound(); saveView("game:mem"); };
 document.getElementById("memBack").onclick = showGamesPanel;
 document.getElementById("memNew").onclick = newMemRound;
 document.getElementById("importBtn").onclick = () => {
@@ -3624,6 +3645,7 @@ setAnswerMode(answerMode);
 document.getElementById("newCapSelect").value = String(newCap());
 document.getElementById("revSelect").value = reverseOn() ? "on" : "off";
 document.getElementById("phraseSelect").value = phrasesOn() ? "on" : "off";
+restoreView(); // reopen whatever view you were on before a refresh (home, a panel, or a game)
 
 // ---------- hover-to-see-Tagalog ----------
 // Hover any choice and a popup shows its partner word (English choice -> Tagalog).
