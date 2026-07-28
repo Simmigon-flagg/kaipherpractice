@@ -2184,7 +2184,7 @@ function sayUtterance(u) {
 }
 // Pronunciation overrides — the TTS reads these respellings so names sound right. The DISPLAYED
 // text is unchanged; this only rewrites what's sent to the voice. (Owner: Simmigon = "Sim-me-yon".)
-const PRONOUNCE = { "Simmigon": "Simmiyon" };
+const PRONOUNCE = { "Simmigon": "Sim me yon" };
 function ttsText(text) {
   let t = String(text);
   for (const k in PRONOUNCE) t = t.split(k).join(PRONOUNCE[k]);
