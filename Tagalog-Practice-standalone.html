@@ -471,6 +471,10 @@
           <span class="game-name">🃏 Sentence Memory</span>
           <span class="game-sub">Same flip &amp; match, but with sentences you've learned</span>
         </button>
+        <button id="gameMemConvo" class="game-card" type="button">
+          <span class="game-name">🗣️ Conversation Match</span>
+          <span class="game-sub">Flip &amp; match — pair each line with its natural reply</span>
+        </button>
       </div>
       <div class="games-soon">More games coming soon.</div>
     </div>
@@ -3042,6 +3046,7 @@ function restoreView() {
     else if (v === "game:rush") { showGamesPanel(); showOnlyGamePanel("rushPanel"); startRush(); saveView(v); }
     else if (v === "game:mem") { showGamesPanel(); openMemGame("words"); }
     else if (v === "game:memS") { showGamesPanel(); openMemGame("sentences"); }
+    else if (v === "game:memC") { showGamesPanel(); openMemGame("convo"); }
   } catch (e) {}
 }
 
@@ -3534,10 +3539,33 @@ function rushGameOver() {
 document.getElementById("gameRush").onclick = () => { showOnlyGamePanel("rushPanel"); startRush(); saveView("game:rush"); };
 document.getElementById("rushBack").onclick = () => { clearInterval(rushTimer); showGamesPanel(); };
 
-// ---------- 🃏 Memory Match: flip two cards to find a pair (words OR sentences; practice-only) ----------
+// Conversation pairs for the 🗣️ Conversation Match game: [line, natural reply] — both Tagalog.
+// NOTE: common everyday exchanges — worth a native-speaker (Jovy) spot-check for phrasing.
+const CONVO_PAIRS = [
+  ["Kumusta ka na?", "Mabuti naman, salamat."],
+  ["Anong pangalan mo?", "Ako si Simmigon."],
+  ["Salamat!", "Walang anuman."],
+  ["Magandang umaga.", "Magandang umaga rin."],
+  ["Magandang gabi.", "Magandang gabi rin."],
+  ["Ingat ka.", "Ikaw rin, ingat."],
+  ["Saan ka pupunta?", "Pupunta ako sa palengke."],
+  ["Kumain ka na ba?", "Oo, kumain na ako."],
+  ["Gutom ka na ba?", "Oo, gutom na ako."],
+  ["Anong oras na?", "Alas-dose na."],
+  ["Nasaan ka?", "Nasa bahay ako."],
+  ["Anong ginagawa mo?", "Nagluluto ako."],
+  ["Magkano ito?", "Singkwenta pesos."],
+  ["Masarap ba?", "Oo, masarap!"],
+  ["Pasensya na.", "Okay lang."],
+  ["Mahal kita.", "Mahal din kita."],
+  ["Paalam!", "Paalam, ingat."],
+  ["Pwede ba kitang tulungan?", "Oo, salamat."]
+];
+// ---------- 🃏 Memory Match: flip two cards to find a pair (words / sentences / conversation) ----------
 let memFirst = null, memLock = false, memMatched = 0, memMoves = 0, memTotalPairs = 0, memMode = "words";
-function memCountKey() { return memMode === "sentences" ? "tq_memCntS" : "tq_memCntW"; }
+function memCountKey() { return memMode === "sentences" ? "tq_memCntS" : memMode === "convo" ? "tq_memCntC" : "tq_memCntW"; }
 function memPool() {
+  if (memMode === "convo") return CONVO_PAIRS.slice(); // curated conversation pairs (not SRS-gated)
   if (memMode === "sentences") {
     const s = [];
     Object.values(SENTENCE_CATS).forEach(c => c.words.forEach(w => { if ((progress[w[0]] || {}).ok >= 3) s.push(w); }));
@@ -3548,18 +3576,22 @@ function memPool() {
 }
 function openMemGame(mode) {
   memMode = mode;
-  document.getElementById("memTitle").textContent = mode === "sentences" ? "🃏 Sentence Memory" : "🃏 Memory Match";
-  document.getElementById("memSub").textContent = mode === "sentences"
-    ? "Flip two cards — find the Tagalog sentence and its meaning."
-    : "Flip two cards — find the Tagalog word and its meaning. Remember where they are!";
-  document.getElementById("memGrid").classList.toggle("sentences", mode === "sentences");
+  const titles = { words: "🃏 Memory Match", sentences: "🃏 Sentence Memory", convo: "🗣️ Conversation Match" };
+  const subs = {
+    words: "Flip two cards — find the Tagalog word and its meaning. Remember where they are!",
+    sentences: "Flip two cards — find the Tagalog sentence and its meaning.",
+    convo: "Flip two cards — match each line to its natural reply."
+  };
+  document.getElementById("memTitle").textContent = titles[mode];
+  document.getElementById("memSub").textContent = subs[mode];
+  document.getElementById("memGrid").classList.toggle("sentences", mode !== "words"); // taller cards for phrases
   const sel = document.getElementById("memCount");
-  const opts = mode === "sentences" ? [3, 5, 8] : [5, 10, 15, 20];
-  const saved = +localStorage.getItem(memCountKey()) || (mode === "sentences" ? 5 : 10);
+  const opts = mode === "words" ? [5, 10, 15, 20] : [3, 5, 8];
+  const saved = +localStorage.getItem(memCountKey()) || (mode === "words" ? 10 : 5);
   sel.innerHTML = opts.map(n => '<option value="' + n + '"' + (n === saved ? " selected" : "") + ">" + n + " pairs</option>").join("");
   showOnlyGamePanel("memPanel");
   newMemRound();
-  saveView(mode === "sentences" ? "game:memS" : "game:mem");
+  saveView(mode === "sentences" ? "game:memS" : mode === "convo" ? "game:memC" : "game:mem");
 }
 function newMemRound() {
   memFirst = null; memLock = false; memMatched = 0; memMoves = 0;
@@ -3607,6 +3639,7 @@ function memTap(card) {
 }
 document.getElementById("gameMemory").onclick = () => openMemGame("words");
 document.getElementById("gameMemSent").onclick = () => openMemGame("sentences");
+document.getElementById("gameMemConvo").onclick = () => openMemGame("convo");
 document.getElementById("memBack").onclick = showGamesPanel;
 document.getElementById("memNew").onclick = newMemRound;
 document.getElementById("memCount").onchange = () => { localStorage.setItem(memCountKey(), document.getElementById("memCount").value); newMemRound(); };
