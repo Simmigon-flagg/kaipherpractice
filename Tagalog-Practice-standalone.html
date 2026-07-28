@@ -105,7 +105,8 @@
     background: var(--accent); color: #fff; font-size: .85rem; font-weight: 700; cursor: pointer; }
   /* sentences are longer — fewer columns, taller FIXED-size cards (so flipping never shifts positions) */
   .mem-grid.sentences { grid-template-columns: repeat(2, 1fr); gap: 8px; }
-  .mem-grid.sentences .mem-card { height: 92px; font-size: .8rem; font-weight: 600; line-height: 1.15; white-space: normal; padding: 6px; }
+  .mem-grid.sentences .mem-card { height: 104px; font-size: .8rem; font-weight: 600; line-height: 1.15; white-space: normal; padding: 6px; }
+  .mem-card .mem-en { display: block; font-size: .72rem; font-weight: 400; opacity: .72; margin-top: 3px; }
   .mem-card.flipped { background: var(--card); color: var(--text); border-color: var(--accent); }
   .mem-card.matched { background: var(--card); color: var(--good); border-color: var(--good); opacity: .5; pointer-events: none; }
   #gamesPanel .speak-sub, #matchPanel .speak-sub, #listenPanel .speak-sub { color: var(--muted); font-size: 1rem; margin-bottom: 14px; font-weight: 400; }
@@ -3677,7 +3678,12 @@ function newMemRound() {
   updateMemStatus();
 }
 function updateMemStatus() { document.getElementById("memStatus").textContent = "Pairs " + memMatched + "/" + memTotalPairs + " · Moves " + memMoves; }
-function memFlip(c) { c.textContent = c.dataset.txt; c.classList.add("flipped"); }
+function memFlip(c) {
+  const txt = c.dataset.txt, en = (memMode === "convo") ? (CONVO_EN[txt] || "") : "";
+  if (en) c.innerHTML = txt.replace(/</g, "&lt;") + '<div class="mem-en">' + en.replace(/</g, "&lt;") + '</div>';
+  else c.textContent = txt;
+  c.classList.add("flipped");
+}
 function memUnflip(c) { c.textContent = "🎴"; c.classList.remove("flipped"); }
 function memTap(card) {
   if (memLock || card === memFirst || card.classList.contains("matched") || card.classList.contains("flipped")) return;
