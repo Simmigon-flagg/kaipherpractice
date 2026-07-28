@@ -399,6 +399,7 @@
       <button id="deckSentences">💬 Sentences</button>
       <button id="deckConj">🧩 Conjugation</button>
       <button id="deckJudge">🤔 Makes Sense?</button>
+      <button id="deckConvo">🗣️ Conversation</button>
       <button id="deckGames">🎮 Games</button>
       <button id="deckLearned">📖 Words &amp; sentences I know</button>
       <button id="deckAdd">➕ Add words / sentences</button>
@@ -411,6 +412,7 @@
       <div class="add-type">
         <button id="addTypeWord" class="active" type="button">📚 Word</button>
         <button id="addTypeSentence" type="button">💬 Sentence</button>
+        <button id="addTypeConvo" type="button">🗣️ Convo</button>
       </div>
       <input type="text" id="addTL" placeholder="Tagalog (e.g. salamat)" autocomplete="off" autocapitalize="off">
       <input type="text" id="addEN" placeholder="English (e.g. thanks)" autocomplete="off">
@@ -1667,12 +1669,39 @@ const PHRASES = {
 // Word data lives in practicetag.js (WORD_CATEGORIES); context phrases in phrases.js (PHRASES).
 
 // ---------- data ----------
-const LS = { custom: "tq_custom", customSent: "tq_customSent", prog: "tq_progress", best: "tq_best" };
+const LS = { custom: "tq_custom", customSent: "tq_customSent", customConvo: "tq_customConvo", prog: "tq_progress", best: "tq_best" };
 const DAILY_KEY = "tq_daily", STREAK_KEY = "tq_streak", NEWCAP_KEY = "tq_newCap";
 const REV_KEY = "tq_reverse", PHRASE_KEY = "tq_phrases", DECK_KEY = "tq_deck";
 let customWords = JSON.parse(localStorage.getItem(LS.custom) || "[]");
 let customSentences = JSON.parse(localStorage.getItem(LS.customSent) || "[]"); // user-added sentences/phrases
+let customConvo = JSON.parse(localStorage.getItem(LS.customConvo) || "[]");   // user-added conversation [line, reply] pairs
 const PHRASE_DATA = (typeof PHRASES !== "undefined") ? PHRASES : {};
+
+// Conversation pairs [line, natural reply] — both Tagalog. Used by BOTH the 🗣️ Conversation Match
+// game and the Conversation study deck. Built-ins are common exchanges (native-check recommended);
+// Jovy can add her own via the ➕ Add tab (they land in customConvo).
+const CONVO_PAIRS = [
+  ["Kumusta ka na?", "Mabuti naman, salamat."],
+  ["Anong pangalan mo?", "Ako si Simmigon."],
+  ["Salamat!", "Walang anuman."],
+  ["Magandang umaga.", "Magandang umaga rin."],
+  ["Magandang gabi.", "Magandang gabi rin."],
+  ["Ingat ka.", "Ikaw rin, ingat."],
+  ["Saan ka pupunta?", "Pupunta ako sa palengke."],
+  ["Kumain ka na ba?", "Oo, kumain na ako."],
+  ["Gutom ka na ba?", "Oo, gutom na ako."],
+  ["Anong oras na?", "Alas-dose na."],
+  ["Nasaan ka?", "Nasa bahay ako."],
+  ["Anong ginagawa mo?", "Nagluluto ako."],
+  ["Magkano ito?", "Singkwenta pesos."],
+  ["Masarap ba?", "Oo, masarap!"],
+  ["Pasensya na.", "Okay lang."],
+  ["Mahal kita.", "Mahal din kita."],
+  ["Paalam!", "Paalam, ingat."],
+  ["Pwede ba kitang tulungan?", "Oo, salamat."]
+];
+function allConvoPairs() { return CONVO_PAIRS.concat(customConvo); }              // built-in + Jovy's, as [line, reply]
+function convoRows() { return allConvoPairs().map(p => [p[0], p[1], "convo"]); }  // tagged rows for the study deck
 
 // ---------- deck: words vs sentences ----------
 // Two parallel decks share one engine. Words live in WORD_CATEGORIES (practicetag.js);
@@ -1681,12 +1710,16 @@ const PHRASE_DATA = (typeof PHRASES !== "undefined") ? PHRASES : {};
 const SENTENCE_CATS = (typeof SENTENCE_CATEGORIES !== "undefined") ? SENTENCE_CATEGORIES : {};
 const CONJ_CATS = (typeof CONJUGATION_CATEGORIES !== "undefined") ? CONJUGATION_CATEGORIES : {};
 const JUDGE_CATS = (typeof JUDGE_CATEGORIES !== "undefined") ? JUDGE_CATEGORIES : {};
-const DECKS = { words: () => WORD_CATEGORIES, sentences: () => SENTENCE_CATS, conj: () => CONJ_CATS, judge: () => JUDGE_CATS };
-let deckMode = localStorage.getItem(DECK_KEY) || "words"; // "words" | "sentences" | "conj" | "judge"
+const DECKS = {
+  words: () => WORD_CATEGORIES, sentences: () => SENTENCE_CATS, conj: () => CONJ_CATS, judge: () => JUDGE_CATS,
+  convo: () => ({ "Conversations": { emoji: "🗣️", words: convoRows() } })
+};
+let deckMode = localStorage.getItem(DECK_KEY) || "words"; // "words" | "sentences" | "conj" | "judge" | "convo"
 if (!DECKS[deckMode]) deckMode = "words";
 function inSentences() { return deckMode === "sentences"; }
 function inJudge() { return deckMode === "judge"; }
-function deckUnit() { return inJudge() ? "sentences" : inSentences() ? "phrases" : "words"; }
+function inConvo() { return deckMode === "convo"; }
+function deckUnit() { return inJudge() ? "sentences" : inSentences() ? "phrases" : inConvo() ? "conversations" : "words"; }
 let CATS = DECKS[deckMode]();
 function allWords() {
   const out = [];
@@ -1713,7 +1746,7 @@ function setDeck(mode) {
   renderHome();
 }
 function updateDeckToggle() {
-  const ids = { words: "deckWords", sentences: "deckSentences", conj: "deckConj", judge: "deckJudge" };
+  const ids = { words: "deckWords", sentences: "deckSentences", conj: "deckConj", judge: "deckJudge", convo: "deckConvo" };
   Object.entries(ids).forEach(([mode, id]) => {
     const el = document.getElementById(id);
     if (el) el.classList.toggle("active", deckMode === mode);
@@ -2216,6 +2249,9 @@ function quizItems(wordList) {
   wordList.forEach(row => {
     if (typeof row[1] === "boolean") {
       items.push({ tl: row[0], good: row[1], expl: row[2], key: row[0], rev: false, judge: true }); // makes-sense: never reversed
+    } else if (row[2] === "convo") {
+      // conversation: [line, reply]; hear/read the line, pick the reply. Both Tagalog; never reversed.
+      items.push({ tl: row[0], en: row[1], key: row[0], rev: false, convo: true });
     } else {
       const [tl, en] = row;
       items.push({ tl, en, key: tl, rev: false });
@@ -2515,8 +2551,8 @@ function renderHome() {
     dEl.onclick = () => startQuiz(name, wordList);
     grid.appendChild(dEl);
   };
-  makeCard(inJudge() ? "All Sentences" : inSentences() ? "All Sentences" : "All Words",
-    inJudge() ? "🤔" : inSentences() ? "💬" : "📚", all, true);
+  makeCard(inConvo() ? "All Conversations" : inJudge() ? "All Sentences" : inSentences() ? "All Sentences" : "All Words",
+    inConvo() ? "🗣️" : inJudge() ? "🤔" : inSentences() ? "💬" : "📚", all, true);
   // words -> sentences bridge: only in the Words deck, once you've mastered words
   // that actually appear in sentences. Self-updating; no remembering required.
   if (deckMode === "words") {
@@ -2575,7 +2611,7 @@ function renderHome() {
     }
     makeCard(label, c.emoji, c.words, false);
   });
-  if (!inSentences() && customWords.length) makeCard("My Words", "✍️", customWords, false);
+  if (deckMode === "words" && customWords.length) makeCard("My Words", "✍️", customWords, false);
   if (inSentences() && customSentences.length) makeCard("My Sentences", "✍️", customSentences, false);
 }
 function startQuiz(name, wordList, mode) {
@@ -2771,6 +2807,11 @@ function nextQuestion() {
     setWordDisplay(wd, tl, true); wd.className = "tl-word";
     document.getElementById("catLabel").textContent = currentCat + " · 🤔 makes sense?";
     speak(tl);
+  } else if (current.convo) {
+    // conversation: show + speak the line, then you pick the right reply
+    setWordDisplay(wd, tl, true); wd.className = "tl-word";
+    document.getElementById("catLabel").textContent = currentCat + " · 🗣 pick the reply";
+    speak(tl);
   } else if (rev) {
     // reverse card: show the English, produce the Tagalog
     setWordDisplay(wd, en, false); wd.className = "tl-word";
@@ -2872,11 +2913,12 @@ function finishAnswer(ok) {
       document.getElementById("phraseBox").innerHTML = '<div class="phrase-en">' + current.expl + '</div>';
       waitMs = 2200; // reading the explanation, no spoken readback
     } else {
-      v.textContent = "✅ Correct! " + tl + " = " + en;
+      v.textContent = "✅ Correct! " + tl + (current.convo ? " → " : " = ") + en;
       v.className = "verdict good";
       // reinforcement starts at +800ms; size the wait to when that readback should finish, so a
       // long sentence still isn't clipped (the universal 5s floor below covers short items)
       if (rev) { laterSpeak(() => speak(tl), 800); waitMs = 800 + estSpeakMs(tl, true) + 500; }        // repeat the Tagalog you produced
+      else if (current.convo) { laterSpeak(() => speak(en), 800); waitMs = 800 + estSpeakMs(en, true) + 500; } // speak the REPLY in the Tagalog voice
       else { laterSpeak(() => speakEnglish(en), 800); waitMs = 800 + estSpeakMs(en, false) + 500; }    // say the English meaning after the bell
       if (!rev && phrasesOn() && PHRASE_DATA[tl]) {
         const [ptl, pen] = PHRASE_DATA[tl];
@@ -3027,6 +3069,7 @@ document.getElementById("deckWords").onclick = () => { closeMenu(); hidePanels()
 document.getElementById("deckSentences").onclick = () => { closeMenu(); hidePanels(); setDeck("sentences"); };
 document.getElementById("deckConj").onclick = () => { closeMenu(); hidePanels(); setDeck("conj"); };
 document.getElementById("deckJudge").onclick = () => { closeMenu(); hidePanels(); setDeck("judge"); };
+document.getElementById("deckConvo").onclick = () => { closeMenu(); hidePanels(); setDeck("convo"); };
 
 // Home-screen panels (Add / Speak) are not real decks — they overlay the home body. hidePanels()
 // closes both and re-lights the current deck's pill (setDeck early-returns if the deck is unchanged).
@@ -3071,19 +3114,31 @@ function setAddType(t) {
   addType = t;
   document.getElementById("addTypeWord").classList.toggle("active", t === "word");
   document.getElementById("addTypeSentence").classList.toggle("active", t === "sentence");
-  document.getElementById("addTL").placeholder = t === "sentence" ? "Tagalog (e.g. Kumusta ka?)" : "Tagalog (e.g. salamat)";
-  document.getElementById("addEN").placeholder = t === "sentence" ? "English (e.g. How are you?)" : "English (e.g. thanks)";
+  document.getElementById("addTypeConvo").classList.toggle("active", t === "convo");
+  const tl = document.getElementById("addTL"), en = document.getElementById("addEN");
+  const hint = document.querySelector("#addPanel .add-hint");
+  if (t === "convo") {
+    tl.placeholder = "Tagalog line (e.g. Kumusta ka na?)";
+    en.placeholder = "Reply in Tagalog (e.g. Mabuti naman.)";
+    if (hint) hint.innerHTML = "Both are Tagalog: the line someone says, then the natural reply.";
+  } else {
+    tl.placeholder = t === "sentence" ? "Tagalog (e.g. Kumusta ka?)" : "Tagalog (e.g. salamat)";
+    en.placeholder = t === "sentence" ? "English (e.g. How are you?)" : "English (e.g. thanks)";
+    if (hint) hint.innerHTML = "Tip: add another way to say it with a slash — e.g. <b>salamat / salamat po</b> — and both count as correct.";
+  }
 }
-function customBank() { return addType === "sentence" ? customSentences : customWords; }
-function saveBank(arr, type) { localStorage.setItem(type === "sentence" ? LS.customSent : LS.custom, JSON.stringify(arr)); }
+function customBank() { return addType === "convo" ? customConvo : addType === "sentence" ? customSentences : customWords; }
+function saveBank(arr, type) {
+  localStorage.setItem(type === "convo" ? LS.customConvo : type === "sentence" ? LS.customSent : LS.custom, JSON.stringify(arr));
+}
 function addCustomEntry() {
   const tl = document.getElementById("addTL").value.trim();
   const en = document.getElementById("addEN").value.trim();
-  if (!tl || !en) { alert("Enter both the Tagalog and the English."); return; }
-  if (allWords().some(w => (w[0] || "").toLowerCase() === tl.toLowerCase()) ||
-      customWords.concat(customSentences).some(w => (w[0] || "").toLowerCase() === tl.toLowerCase())) {
-    alert('"' + tl + '" is already in the bank.'); return;
-  }
+  const bothLabel = addType === "convo" ? "the line and the reply." : "the Tagalog and the English.";
+  if (!tl || !en) { alert("Enter both " + bothLabel); return; }
+  const already = customWords.concat(customSentences, customConvo).some(w => (w[0] || "").toLowerCase() === tl.toLowerCase())
+    || (addType !== "convo" && allWords().some(w => (w[0] || "").toLowerCase() === tl.toLowerCase()));
+  if (already) { alert('"' + tl + '" is already in the bank.'); return; }
   const arr = customBank();
   arr.push([tl, en]);
   saveBank(arr, addType);
@@ -3091,10 +3146,10 @@ function addCustomEntry() {
   document.getElementById("addEN").value = "";
   document.getElementById("addTL").focus();
   renderCustomList();
-  flagNewFeature("Added to your " + (addType === "sentence" ? "Sentences" : "Words") + " bank");
+  flagNewFeature("Added to your " + (addType === "convo" ? "Conversation" : addType === "sentence" ? "Sentences" : "Words") + " bank");
 }
 function deleteCustom(type, idx) {
-  const arr = type === "sentence" ? customSentences : customWords;
+  const arr = type === "convo" ? customConvo : type === "sentence" ? customSentences : customWords;
   if (idx < 0 || idx >= arr.length) return;
   arr.splice(idx, 1);
   saveBank(arr, type);
@@ -3103,6 +3158,7 @@ function deleteCustom(type, idx) {
 function renderCustomList() {
   const box = document.getElementById("customList");
   const rows = [
+    ...customConvo.map((w, i) => ({ w, i, type: "convo", tag: "🗣️ convo" })),
     ...customSentences.map((w, i) => ({ w, i, type: "sentence", tag: "💬 sentence" })),
     ...customWords.map((w, i) => ({ w, i, type: "word", tag: "📚 word" })),
   ];
@@ -3120,6 +3176,7 @@ function renderCustomList() {
 document.getElementById("deckAdd").onclick = showAddPanel;
 document.getElementById("addTypeWord").onclick = () => setAddType("word");
 document.getElementById("addTypeSentence").onclick = () => setAddType("sentence");
+document.getElementById("addTypeConvo").onclick = () => setAddType("convo");
 document.getElementById("addSaveBtn").onclick = addCustomEntry;
 document.getElementById("addEN").addEventListener("keydown", e => { if (e.key === "Enter") addCustomEntry(); });
 
@@ -3539,33 +3596,11 @@ function rushGameOver() {
 document.getElementById("gameRush").onclick = () => { showOnlyGamePanel("rushPanel"); startRush(); saveView("game:rush"); };
 document.getElementById("rushBack").onclick = () => { clearInterval(rushTimer); showGamesPanel(); };
 
-// Conversation pairs for the 🗣️ Conversation Match game: [line, natural reply] — both Tagalog.
-// NOTE: common everyday exchanges — worth a native-speaker (Jovy) spot-check for phrasing.
-const CONVO_PAIRS = [
-  ["Kumusta ka na?", "Mabuti naman, salamat."],
-  ["Anong pangalan mo?", "Ako si Simmigon."],
-  ["Salamat!", "Walang anuman."],
-  ["Magandang umaga.", "Magandang umaga rin."],
-  ["Magandang gabi.", "Magandang gabi rin."],
-  ["Ingat ka.", "Ikaw rin, ingat."],
-  ["Saan ka pupunta?", "Pupunta ako sa palengke."],
-  ["Kumain ka na ba?", "Oo, kumain na ako."],
-  ["Gutom ka na ba?", "Oo, gutom na ako."],
-  ["Anong oras na?", "Alas-dose na."],
-  ["Nasaan ka?", "Nasa bahay ako."],
-  ["Anong ginagawa mo?", "Nagluluto ako."],
-  ["Magkano ito?", "Singkwenta pesos."],
-  ["Masarap ba?", "Oo, masarap!"],
-  ["Pasensya na.", "Okay lang."],
-  ["Mahal kita.", "Mahal din kita."],
-  ["Paalam!", "Paalam, ingat."],
-  ["Pwede ba kitang tulungan?", "Oo, salamat."]
-];
 // ---------- 🃏 Memory Match: flip two cards to find a pair (words / sentences / conversation) ----------
 let memFirst = null, memLock = false, memMatched = 0, memMoves = 0, memTotalPairs = 0, memMode = "words";
 function memCountKey() { return memMode === "sentences" ? "tq_memCntS" : memMode === "convo" ? "tq_memCntC" : "tq_memCntW"; }
 function memPool() {
-  if (memMode === "convo") return CONVO_PAIRS.slice(); // curated conversation pairs (not SRS-gated)
+  if (memMode === "convo") return allConvoPairs(); // built-in + Jovy's pairs (not SRS-gated)
   if (memMode === "sentences") {
     const s = [];
     Object.values(SENTENCE_CATS).forEach(c => c.words.forEach(w => { if ((progress[w[0]] || {}).ok >= 3) s.push(w); }));
@@ -3666,7 +3701,7 @@ document.getElementById("importSave").onclick = () => {
 };
 
 // ---------- backup: export/import everything ----------
-const BACKUP_LS_KEYS = [LS.custom, LS.customSent, LS.prog, LS.best, SPEED_BEST_KEY, SPEED_BEST_KEY_SENT, SOUND_KEY, MODE_KEY,
+const BACKUP_LS_KEYS = [LS.custom, LS.customSent, LS.customConvo, LS.prog, LS.best, SPEED_BEST_KEY, SPEED_BEST_KEY_SENT, SOUND_KEY, MODE_KEY,
   DAILY_KEY, STREAK_KEY, NEWCAP_KEY, REV_KEY, PHRASE_KEY, DECK_KEY];
 function blobToDataURL(blob) {
   return new Promise((res, rej) => {
@@ -3708,7 +3743,7 @@ document.getElementById("backupFile").onchange = async e => {
 };
 document.getElementById("resetBtn").onclick = () => {
   if (confirm("Reset all progress and custom words?")) {
-    [LS.custom, LS.customSent, LS.prog, LS.best, SPEED_BEST_KEY, SPEED_BEST_KEY_SENT, DAILY_KEY, STREAK_KEY].forEach(k => localStorage.removeItem(k));
+    [LS.custom, LS.customSent, LS.customConvo, LS.prog, LS.best, SPEED_BEST_KEY, SPEED_BEST_KEY_SENT, DAILY_KEY, STREAK_KEY].forEach(k => localStorage.removeItem(k));
     location.reload();
   }
 };
