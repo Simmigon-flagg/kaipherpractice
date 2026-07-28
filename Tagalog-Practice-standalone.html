@@ -96,10 +96,10 @@
   #homeScreen.gaming #gamesPanel.show, #homeScreen.gaming #matchPanel.show, #homeScreen.gaming #listenPanel.show, #homeScreen.gaming #rushPanel.show, #homeScreen.gaming #memPanel.show { display: block; }
   /* 🃏 Memory Match cards */
   .mem-status { min-height: 24px; margin: 6px 0 12px; color: var(--muted); font-size: 1.05rem; }
-  .mem-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }
-  .mem-card { height: 74px; display: flex; align-items: center; justify-content: center; text-align: center;
-    padding: 6px; overflow: hidden; border: 2px solid transparent; border-radius: 12px;
-    background: var(--accent); color: #fff; font-size: 1.15rem; font-weight: 700; cursor: pointer; }
+  .mem-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-bottom: 16px; }
+  .mem-card { height: 60px; display: flex; align-items: center; justify-content: center; text-align: center;
+    padding: 4px; overflow: hidden; border: 2px solid transparent; border-radius: 10px; line-height: 1.05;
+    background: var(--accent); color: #fff; font-size: .92rem; font-weight: 700; cursor: pointer; }
   .mem-card.flipped { background: var(--card); color: var(--text); border-color: var(--accent); }
   .mem-card.matched { background: var(--card); color: var(--good); border-color: var(--good); opacity: .5; pointer-events: none; }
   #gamesPanel .speak-sub, #matchPanel .speak-sub, #listenPanel .speak-sub { color: var(--muted); font-size: 1rem; margin-bottom: 14px; font-weight: 400; }
@@ -3527,7 +3527,8 @@ function newMemRound() {
   status.textContent = ""; grid.innerHTML = "";
   const pool = matchPool().slice();
   const picks = [], seenEn = new Set();
-  while (picks.length < 4 && pool.length) {
+  // up to 15 pairs = 30 cards (or fewer if you haven't learned that many words yet)
+  while (picks.length < 15 && pool.length) {
     const [tl, en] = pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
     const k = normAnswer(en); if (!seenEn.has(k)) { seenEn.add(k); picks.push([tl, en]); }
   }
