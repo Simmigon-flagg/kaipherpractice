@@ -91,9 +91,17 @@
   #speakScope { background: #2e3342; color: var(--text); border: 1px solid #3a4054; border-radius: 10px; padding: 10px 12px; font-size: 1rem; }
 
   /* 🎮 Games (hub + individual games) */
-  #gamesPanel, #matchPanel, #listenPanel, #rushPanel { display: none; margin-top: 8px; text-align: center; }
-  #homeScreen.gaming > *:not(.nav-bar):not(.deck-menu):not(#gamesPanel):not(#matchPanel):not(#listenPanel):not(#rushPanel) { display: none !important; }
-  #homeScreen.gaming #gamesPanel.show, #homeScreen.gaming #matchPanel.show, #homeScreen.gaming #listenPanel.show, #homeScreen.gaming #rushPanel.show { display: block; }
+  #gamesPanel, #matchPanel, #listenPanel, #rushPanel, #memPanel { display: none; margin-top: 8px; text-align: center; }
+  #homeScreen.gaming > *:not(.nav-bar):not(.deck-menu):not(#gamesPanel):not(#matchPanel):not(#listenPanel):not(#rushPanel):not(#memPanel) { display: none !important; }
+  #homeScreen.gaming #gamesPanel.show, #homeScreen.gaming #matchPanel.show, #homeScreen.gaming #listenPanel.show, #homeScreen.gaming #rushPanel.show, #homeScreen.gaming #memPanel.show { display: block; }
+  /* 🃏 Memory Match cards */
+  .mem-status { min-height: 24px; margin: 6px 0 12px; color: var(--muted); font-size: 1.05rem; }
+  .mem-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }
+  .mem-card { height: 74px; display: flex; align-items: center; justify-content: center; text-align: center;
+    padding: 6px; overflow: hidden; border: 2px solid transparent; border-radius: 12px;
+    background: var(--accent); color: #fff; font-size: 1.15rem; font-weight: 700; cursor: pointer; }
+  .mem-card.flipped { background: var(--card); color: var(--text); border-color: var(--accent); }
+  .mem-card.matched { background: var(--card); color: var(--good); border-color: var(--good); opacity: .5; pointer-events: none; }
   #gamesPanel .speak-sub, #matchPanel .speak-sub, #listenPanel .speak-sub { color: var(--muted); font-size: 1rem; margin-bottom: 14px; font-weight: 400; }
   /* ⚡ Streak Rush */
   .rush-hud { display: flex; justify-content: space-between; align-items: center; font-size: 1.15rem; font-weight: 700; margin-bottom: 10px; }
@@ -448,6 +456,10 @@
           <span class="game-name">⚡ Streak Rush</span>
           <span class="game-sub">Beat the clock, build a combo, 3 lives — chase your high score</span>
         </button>
+        <button id="gameMemory" class="game-card" type="button">
+          <span class="game-name">🃏 Memory Match</span>
+          <span class="game-sub">Flip cards to find pairs — remember the word and where it is</span>
+        </button>
       </div>
       <div class="games-soon">More games coming soon.</div>
     </div>
@@ -485,6 +497,15 @@
       <div id="rushWord" class="rush-word">—</div>
       <div class="choices" id="rushChoices"></div>
       <div id="rushOver" class="rush-over"></div>
+    </div>
+    <!-- 🃏 Memory Match — flip two cards to find a Tagalog word + its meaning. Practice-only. -->
+    <div id="memPanel" class="game-view">
+      <div style="text-align:left"><button id="memBack" class="ghost-btn" type="button">← Games</button></div>
+      <div class="add-title">🃏 Memory Match</div>
+      <div class="speak-sub">Flip two cards — find the Tagalog word and its meaning. Remember where they are!</div>
+      <div class="mem-status" id="memStatus"></div>
+      <div class="mem-grid" id="memGrid"></div>
+      <button id="memNew" class="ghost-btn" type="button">New game →</button>
     </div>
     <div class="learned-banner" id="learnedBanner"></div>
     <button id="startHereBtn">▶ Start Today’s Practice</button>
@@ -3263,7 +3284,7 @@ document.getElementById("learnedSearch").addEventListener("input", e => renderLe
 let matchSel = null, matchLeft = 0;
 let rushTimer = null, rushHearts = 0, rushScore = 0, rushCombo = 0, rushItem = null, rushDuration = 0, rushRemain = 0, rushBusy = false;
 // ---------- 🎮 Games hub (Word Match + Listen & Pick + Streak Rush; all practice-only) ----------
-const GAME_PANELS = ["gamesPanel", "matchPanel", "listenPanel", "rushPanel"];
+const GAME_PANELS = ["gamesPanel", "matchPanel", "listenPanel", "rushPanel", "memPanel"];
 function showOnlyGamePanel(id) { GAME_PANELS.forEach(p => document.getElementById(p).classList.toggle("show", p === id)); }
 function hideGamesPanel() {
   clearInterval(rushTimer); // stop the Streak Rush countdown if it's running
@@ -3476,6 +3497,55 @@ function rushGameOver() {
 }
 document.getElementById("gameRush").onclick = () => { showOnlyGamePanel("rushPanel"); startRush(); };
 document.getElementById("rushBack").onclick = () => { clearInterval(rushTimer); showGamesPanel(); };
+
+// ---------- 🃏 Memory Match: flip two cards to find a word + its meaning (practice-only) ----------
+let memFirst = null, memLock = false, memMatched = 0, memMoves = 0, memTotalPairs = 0;
+function newMemRound() {
+  memFirst = null; memLock = false; memMatched = 0; memMoves = 0;
+  const status = document.getElementById("memStatus"), grid = document.getElementById("memGrid");
+  status.textContent = ""; grid.innerHTML = "";
+  const pool = matchPool().slice();
+  const picks = [], seenEn = new Set();
+  while (picks.length < 4 && pool.length) {
+    const [tl, en] = pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
+    const k = normAnswer(en); if (!seenEn.has(k)) { seenEn.add(k); picks.push([tl, en]); }
+  }
+  if (picks.length < 2) { status.textContent = "Learn a few words first, then come back."; return; }
+  memTotalPairs = picks.length;
+  const cards = [];
+  picks.forEach(([tl, en]) => { cards.push({ key: tl, txt: tl }); cards.push({ key: tl, txt: en }); });
+  for (let i = cards.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [cards[i], cards[j]] = [cards[j], cards[i]]; }
+  cards.forEach(c => {
+    const b = document.createElement("button");
+    b.className = "mem-card"; b.type = "button"; b.textContent = "🎴";
+    b.dataset.key = c.key; b.dataset.txt = c.txt;
+    b.onclick = () => memTap(b);
+    grid.appendChild(b);
+  });
+  updateMemStatus();
+}
+function updateMemStatus() { document.getElementById("memStatus").textContent = "Pairs " + memMatched + "/" + memTotalPairs + " · Moves " + memMoves; }
+function memFlip(c) { c.textContent = c.dataset.txt; c.classList.add("flipped"); }
+function memUnflip(c) { c.textContent = "🎴"; c.classList.remove("flipped"); }
+function memTap(card) {
+  if (memLock || card === memFirst || card.classList.contains("matched") || card.classList.contains("flipped")) return;
+  memFlip(card);
+  if (!memFirst) { memFirst = card; return; }
+  memMoves++;
+  if (memFirst.dataset.key === card.dataset.key) { // matched pair
+    memFirst.classList.remove("flipped"); memFirst.classList.add("matched");
+    card.classList.remove("flipped"); card.classList.add("matched");
+    correctSound(); speak(card.dataset.key);
+    memFirst = null; memMatched++; updateMemStatus();
+    if (memMatched >= memTotalPairs) setTimeout(() => { document.getElementById("memStatus").innerHTML = "🎉 Cleared in " + memMoves + " moves! Tap New game."; }, 500);
+  } else { // wrong: flip both back after a beat
+    memLock = true; const a = memFirst, b = card; memFirst = null; updateMemStatus();
+    setTimeout(() => { memUnflip(a); memUnflip(b); memLock = false; }, 950);
+  }
+}
+document.getElementById("gameMemory").onclick = () => { showOnlyGamePanel("memPanel"); newMemRound(); };
+document.getElementById("memBack").onclick = showGamesPanel;
+document.getElementById("memNew").onclick = newMemRound;
 document.getElementById("importBtn").onclick = () => {
   const b = document.getElementById("importBox");
   b.style.display = b.style.display === "block" ? "none" : "block";
