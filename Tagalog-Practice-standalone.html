@@ -95,11 +95,17 @@
   #homeScreen.gaming > *:not(.nav-bar):not(.deck-menu):not(#gamesPanel):not(#matchPanel):not(#listenPanel):not(#rushPanel):not(#memPanel) { display: none !important; }
   #homeScreen.gaming #gamesPanel.show, #homeScreen.gaming #matchPanel.show, #homeScreen.gaming #listenPanel.show, #homeScreen.gaming #rushPanel.show, #homeScreen.gaming #memPanel.show { display: block; }
   /* 🃏 Memory Match cards */
+  .mem-controls { display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; margin-bottom: 14px; }
+  .mem-controls label { font-size: 1rem; color: var(--muted); }
+  #memCount { background: #2e3342; color: var(--text); border: 1px solid #3a4054; border-radius: 10px; padding: 9px 12px; font-size: 1rem; }
   .mem-status { min-height: 24px; margin: 6px 0 12px; color: var(--muted); font-size: 1.05rem; }
   .mem-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-bottom: 16px; }
   .mem-card { height: 50px; display: flex; align-items: center; justify-content: center; text-align: center;
     padding: 4px; overflow: hidden; border: 2px solid transparent; border-radius: 9px; line-height: 1.05;
     background: var(--accent); color: #fff; font-size: .85rem; font-weight: 700; cursor: pointer; }
+  /* sentences are longer — fewer columns, taller FIXED-size cards (so flipping never shifts positions) */
+  .mem-grid.sentences { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .mem-grid.sentences .mem-card { height: 92px; font-size: .8rem; font-weight: 600; line-height: 1.15; white-space: normal; padding: 6px; }
   .mem-card.flipped { background: var(--card); color: var(--text); border-color: var(--accent); }
   .mem-card.matched { background: var(--card); color: var(--good); border-color: var(--good); opacity: .5; pointer-events: none; }
   #gamesPanel .speak-sub, #matchPanel .speak-sub, #listenPanel .speak-sub { color: var(--muted); font-size: 1rem; margin-bottom: 14px; font-weight: 400; }
@@ -459,7 +465,11 @@
         </button>
         <button id="gameMemory" class="game-card" type="button">
           <span class="game-name">🃏 Memory Match</span>
-          <span class="game-sub">Flip cards to find pairs — remember the word and where it is</span>
+          <span class="game-sub">Flip cards to find word pairs — remember where each is</span>
+        </button>
+        <button id="gameMemSent" class="game-card" type="button">
+          <span class="game-name">🃏 Sentence Memory</span>
+          <span class="game-sub">Same flip &amp; match, but with sentences you've learned</span>
         </button>
       </div>
       <div class="games-soon">More games coming soon.</div>
@@ -502,11 +512,15 @@
     <!-- 🃏 Memory Match — flip two cards to find a Tagalog word + its meaning. Practice-only. -->
     <div id="memPanel" class="game-view">
       <div style="text-align:left"><button id="memBack" class="ghost-btn" type="button">← Games</button></div>
-      <div class="add-title">🃏 Memory Match</div>
-      <div class="speak-sub">Flip two cards — find the Tagalog word and its meaning. Remember where they are!</div>
+      <div class="add-title" id="memTitle">🃏 Memory Match</div>
+      <div class="speak-sub" id="memSub">Flip two cards — find the Tagalog word and its meaning. Remember where they are!</div>
+      <div class="mem-controls">
+        <label for="memCount">Pairs:</label>
+        <select id="memCount"></select>
+        <button id="memNew" class="ghost-btn" type="button">New game →</button>
+      </div>
       <div class="mem-status" id="memStatus"></div>
       <div class="mem-grid" id="memGrid"></div>
-      <button id="memNew" class="ghost-btn" type="button">New game →</button>
     </div>
     <div class="learned-banner" id="learnedBanner"></div>
     <button id="startHereBtn">▶ Start Today’s Practice</button>
@@ -3026,7 +3040,8 @@ function restoreView() {
     else if (v === "game:match") { showGamesPanel(); showOnlyGamePanel("matchPanel"); newMatchRound(); saveView(v); }
     else if (v === "game:listen") { showGamesPanel(); showOnlyGamePanel("listenPanel"); newListenQ(); saveView(v); }
     else if (v === "game:rush") { showGamesPanel(); showOnlyGamePanel("rushPanel"); startRush(); saveView(v); }
-    else if (v === "game:mem") { showGamesPanel(); showOnlyGamePanel("memPanel"); newMemRound(); saveView(v); }
+    else if (v === "game:mem") { showGamesPanel(); openMemGame("words"); }
+    else if (v === "game:memS") { showGamesPanel(); openMemGame("sentences"); }
   } catch (e) {}
 }
 
@@ -3519,20 +3534,45 @@ function rushGameOver() {
 document.getElementById("gameRush").onclick = () => { showOnlyGamePanel("rushPanel"); startRush(); saveView("game:rush"); };
 document.getElementById("rushBack").onclick = () => { clearInterval(rushTimer); showGamesPanel(); };
 
-// ---------- 🃏 Memory Match: flip two cards to find a word + its meaning (practice-only) ----------
-let memFirst = null, memLock = false, memMatched = 0, memMoves = 0, memTotalPairs = 0;
+// ---------- 🃏 Memory Match: flip two cards to find a pair (words OR sentences; practice-only) ----------
+let memFirst = null, memLock = false, memMatched = 0, memMoves = 0, memTotalPairs = 0, memMode = "words";
+function memCountKey() { return memMode === "sentences" ? "tq_memCntS" : "tq_memCntW"; }
+function memPool() {
+  if (memMode === "sentences") {
+    const s = [];
+    Object.values(SENTENCE_CATS).forEach(c => c.words.forEach(w => { if ((progress[w[0]] || {}).ok >= 3) s.push(w); }));
+    customSentences.forEach(w => { if ((progress[w[0]] || {}).ok >= 3) s.push(w); });
+    return s;
+  }
+  return matchPool(); // learned words
+}
+function openMemGame(mode) {
+  memMode = mode;
+  document.getElementById("memTitle").textContent = mode === "sentences" ? "🃏 Sentence Memory" : "🃏 Memory Match";
+  document.getElementById("memSub").textContent = mode === "sentences"
+    ? "Flip two cards — find the Tagalog sentence and its meaning."
+    : "Flip two cards — find the Tagalog word and its meaning. Remember where they are!";
+  document.getElementById("memGrid").classList.toggle("sentences", mode === "sentences");
+  const sel = document.getElementById("memCount");
+  const opts = mode === "sentences" ? [3, 5, 8] : [5, 10, 15, 20];
+  const saved = +localStorage.getItem(memCountKey()) || (mode === "sentences" ? 5 : 10);
+  sel.innerHTML = opts.map(n => '<option value="' + n + '"' + (n === saved ? " selected" : "") + ">" + n + " pairs</option>").join("");
+  showOnlyGamePanel("memPanel");
+  newMemRound();
+  saveView(mode === "sentences" ? "game:memS" : "game:mem");
+}
 function newMemRound() {
   memFirst = null; memLock = false; memMatched = 0; memMoves = 0;
   const status = document.getElementById("memStatus"), grid = document.getElementById("memGrid");
   status.textContent = ""; grid.innerHTML = "";
-  const pool = matchPool().slice();
+  const pool = memPool().slice();
   const picks = [], seenEn = new Set();
-  // up to 10 pairs = 20 cards (or fewer if you haven't learned that many words yet)
-  while (picks.length < 10 && pool.length) {
+  const count = +document.getElementById("memCount").value || 10; // pairs chosen in the picker
+  while (picks.length < count && pool.length) {
     const [tl, en] = pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
     const k = normAnswer(en); if (!seenEn.has(k)) { seenEn.add(k); picks.push([tl, en]); }
   }
-  if (picks.length < 2) { status.textContent = "Learn a few words first, then come back."; return; }
+  if (picks.length < 2) { status.textContent = "Learn a few " + (memMode === "sentences" ? "sentences" : "words") + " first, then come back."; return; }
   memTotalPairs = picks.length;
   const cards = [];
   picks.forEach(([tl, en]) => { cards.push({ key: tl, txt: tl }); cards.push({ key: tl, txt: en }); });
@@ -3565,9 +3605,11 @@ function memTap(card) {
     setTimeout(() => { memUnflip(a); memUnflip(b); memLock = false; }, 950);
   }
 }
-document.getElementById("gameMemory").onclick = () => { showOnlyGamePanel("memPanel"); newMemRound(); saveView("game:mem"); };
+document.getElementById("gameMemory").onclick = () => openMemGame("words");
+document.getElementById("gameMemSent").onclick = () => openMemGame("sentences");
 document.getElementById("memBack").onclick = showGamesPanel;
 document.getElementById("memNew").onclick = newMemRound;
+document.getElementById("memCount").onchange = () => { localStorage.setItem(memCountKey(), document.getElementById("memCount").value); newMemRound(); };
 document.getElementById("importBtn").onclick = () => {
   const b = document.getElementById("importBox");
   b.style.display = b.style.display === "block" ? "none" : "block";
