@@ -379,6 +379,32 @@
     font-size: .7rem; line-height: 1; padding: 3px 6px; border-radius: 999px;
     margin-left: 6px; vertical-align: middle;
   }
+  /* ---------- 📊 Dashboard ---------- */
+  #dashPanel { display: none; margin-top: 8px; text-align: left; }
+  #homeScreen.dashing > *:not(.nav-bar):not(.deck-menu):not(#dashPanel) { display: none !important; }
+  #homeScreen.dashing #dashPanel { display: block; }
+  .dash-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 12px 0; }
+  .dash-stat { background: var(--card); border-radius: 14px; padding: 14px; text-align: center; }
+  .dash-stat .big { font-size: 1.9rem; font-weight: 800; line-height: 1.1; }
+  .dash-stat .lbl { color: var(--muted); font-size: .9rem; margin-top: 4px; }
+  .dash-section-title { font-weight: 700; font-size: 1.05rem; margin: 16px 0 8px; }
+  .dash-goal { background: var(--card); border-radius: 14px; padding: 14px; margin-bottom: 6px; }
+  .dash-goal .bar { height: 10px; border-radius: 5px; background: #2e3342; overflow: hidden; margin-top: 8px; }
+  .dash-goal .bar > div { height: 100%; background: var(--good); border-radius: 5px; }
+  .dash-makeup { background: linear-gradient(135deg, #3a2a1d, #332a24); border: 1px solid #6b4f2a;
+    border-radius: 14px; padding: 14px; margin-bottom: 6px; }
+  .dash-makeup.zero { background: var(--card); border-color: transparent; }
+  .heat-legend { display: flex; gap: 12px; flex-wrap: wrap; color: var(--muted); font-size: .82rem; margin: 6px 0 10px; }
+  .heat-legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .heat-dot { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+  .heat-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+  .heat-cell { aspect-ratio: 1; border-radius: 4px; background: #2e3342; }
+  .heat-cell.hit { background: var(--good); }
+  .heat-cell.partial { background: #d9a441; }
+  .heat-cell.miss { background: #7a2f2f; }
+  .heat-cell.untracked { background: #23262f; }
+  .heat-cell.today { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .heat-cell.future { background: transparent; }
 </style>
 </head>
 <body>
@@ -405,6 +431,7 @@
       <button id="deckConvo">🗣️ Conversation</button>
       <button id="deckGames">🎮 Games</button>
       <button id="deckLearned">📖 Words &amp; sentences I know</button>
+      <button id="deckDash">📊 Dashboard <span class="nf-badge">🆕</span></button>
       <button id="deckAdd">➕ Add words / sentences</button>
       <button id="deckSpeak">🎤 Speak &amp; Score</button>
     </div>
@@ -450,6 +477,11 @@
       <div id="learnedCount" class="learned-count"></div>
       <input type="text" id="learnedSearch" placeholder="search…" autocomplete="off" autocapitalize="off">
       <div id="learnedList"></div>
+    </div>
+    <!-- 📊 Dashboard: progress at a glance — streak, learned, today's goal, calendar of practiced/missed days, make-up backlog. -->
+    <div id="dashPanel">
+      <div class="add-title">📊 Your Progress</div>
+      <div id="dashBody"></div>
     </div>
     <!-- 🎮 Games hub: pick a game. Games are PRACTICE-ONLY — they never change mastery/schedule. -->
     <div id="gamesPanel" class="game-view">
@@ -1793,6 +1825,28 @@ function getDaily() {
   return d;
 }
 function saveDaily(d) { localStorage.setItem(DAILY_KEY, JSON.stringify(d)); }
+
+// ---------- per-day HISTORY (for the Dashboard) ----------
+// The app previously only kept TODAY's stats (overwritten daily), so past days were lost.
+// This logs a permanent per-day record so the dashboard can show practiced vs missed days.
+// Shape: { "YYYY-MM-DD": { a:answered, c:correct, w:wrong, ms:practiceMillis } }. History
+// begins the first day this runs — days before that are "untracked", never shown as "missed".
+const HISTORY_KEY = "tq_history";
+function getHistory() { try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || "{}"); } catch (e) { return {}; } }
+function saveHistory(h) { try { localStorage.setItem(HISTORY_KEY, JSON.stringify(h)); } catch (e) {} }
+function historyDayGoalMs() { return (+(localStorage.getItem("tt_goalMin") || 60)) * 60000; }
+function logHistoryFromDaily() {
+  const d = getDaily(); const h = getHistory(); const t = d.date;
+  const rec = h[t] || { a: 0, c: 0, w: 0, ms: 0 };
+  rec.a = d.answeredN; rec.c = d.correct; rec.w = d.wrong; // snapshot today's counts
+  h[t] = rec; saveHistory(h);
+}
+function recordPracticeMs(dt) {
+  if (!(dt > 0)) return;
+  const h = getHistory(); const t = todayStr();
+  const rec = h[t] || { a: 0, c: 0, w: 0, ms: 0 };
+  rec.ms = (rec.ms || 0) + dt; h[t] = rec; saveHistory(h);
+}
 function getStreak() { return JSON.parse(localStorage.getItem(STREAK_KEY) || "null") || { count: 0, last: null }; }
 function bumpStreak() {
   const t = todayStr();
@@ -2971,6 +3025,7 @@ function finishAnswer(ok) {
     }
   }
   saveDaily(d);
+  logHistoryFromDaily(); // keep the dashboard's per-day record current
   bumpStreak();
   localStorage.setItem(LS.prog, JSON.stringify(progress));
   sessionDone++;
@@ -3100,13 +3155,14 @@ document.getElementById("deckConvo").onclick = () => { closeMenu(); hidePanels()
 // Remember which view you're on so a refresh reopens it instead of dumping you back to the home deck.
 const VIEW_KEY = "tq_view";
 function saveView(v) { try { localStorage.setItem(VIEW_KEY, v); } catch (e) {} }
-function hidePanels() { closeMenu(); hideAddPanel(); hideSpeakPanel(); hideGamesPanel(); hideLearnedPanel(); updateDeckToggle(); saveView("home"); }
+function hidePanels() { closeMenu(); hideAddPanel(); hideSpeakPanel(); hideGamesPanel(); hideLearnedPanel(); hideDashboard(); updateDeckToggle(); saveView("home"); }
 function restoreView() {
   let v = "home"; try { v = localStorage.getItem(VIEW_KEY) || "home"; } catch (e) {}
   try {
     if (v === "add") showAddPanel();
     else if (v === "speak") showSpeakPanel();
     else if (v === "learned") showLearnedPanel();
+    else if (v === "dash") showDashboard();
     else if (v === "games") showGamesPanel();
     else if (v === "game:match") { showGamesPanel(); showOnlyGamePanel("matchPanel"); newMatchRound(); saveView(v); }
     else if (v === "game:listen") { showGamesPanel(); showOnlyGamePanel("listenPanel"); newListenQ(); saveView(v); }
@@ -3361,6 +3417,95 @@ function hideLearnedPanel() {
   document.getElementById("homeScreen").classList.remove("listing");
   const b = document.getElementById("deckLearned"); if (b) b.classList.remove("active");
 }
+// ---------- 📊 Dashboard ----------
+function dayKey(dateObj) { return dateObj.toLocaleDateString("en-CA"); }
+function showDashboard() {
+  closeMenu(); hideAddPanel(); hideSpeakPanel(); hideGamesPanel(); hideLearnedPanel();
+  document.getElementById("homeScreen").classList.add("dashing");
+  ["deckWords","deckSentences","deckConj","deckJudge","deckGames","deckAdd","deckSpeak","deckLearned"].forEach(id => { const b = document.getElementById(id); if (b) b.classList.remove("active"); });
+  const b = document.getElementById("deckDash"); if (b) b.classList.add("active");
+  setSection("📊 Dashboard");
+  renderDashboard();
+  saveView("dash");
+  if (typeof flagNewFeature === "function") flagNewFeature("Dashboard — your progress + missed days");
+}
+function hideDashboard() {
+  document.getElementById("homeScreen").classList.remove("dashing");
+  const b = document.getElementById("deckDash"); if (b) b.classList.remove("active");
+}
+function renderDashboard() {
+  const h = getHistory();
+  const goalMs = historyDayGoalMs();
+  const goalMin = Math.round(goalMs / 60000);
+  const today = todayStr();
+  const streak = getStreak().count || 0;
+  const learned = knownWords().length, total = allWords().length;
+  const keys = Object.keys(h).sort();
+  const firstDay = keys.length ? keys[0] : today;
+
+  const rec = h[today] || { a: 0, c: 0, w: 0, ms: 0 };
+  const todayMin = Math.floor((rec.ms || 0) / 60000);
+  const goalPct = Math.min(100, Math.round(100 * (rec.ms || 0) / goalMs));
+  const acc = rec.a ? Math.round(100 * rec.c / rec.a) : 0;
+
+  // Make-up backlog: from the first tracked day up to YESTERDAY, sum how far each day fell short
+  // of the daily goal. Days before tracking began are not counted (honest — no data existed).
+  let makeupMs = 0, missedDays = 0;
+  const cur = new Date(firstDay + "T00:00:00");
+  const yest = new Date(today + "T00:00:00"); yest.setDate(yest.getDate() - 1);
+  let guard = 0;
+  while (cur <= yest && guard++ < 400) {
+    const k = dayKey(cur);
+    const ms = (h[k] && h[k].ms) || 0;
+    const deficit = Math.max(0, goalMs - ms);
+    makeupMs += deficit;
+    if (ms < goalMs * 0.5) missedDays++;
+    cur.setDate(cur.getDate() + 1);
+  }
+  const makeupMin = Math.round(makeupMs / 60000);
+
+  // 35-day heatmap ending today (newest bottom-right)
+  let cells = "";
+  const start = new Date(today + "T00:00:00"); start.setDate(start.getDate() - 34);
+  for (let i = 0; i < 35; i++) {
+    const dObj = new Date(start); dObj.setDate(start.getDate() + i);
+    const k = dayKey(dObj);
+    const r = h[k];
+    let cls = "heat-cell";
+    if (k > today) cls += " future";
+    else if (r && (r.ms || 0) >= goalMs) cls += " hit";
+    else if (r && ((r.ms || 0) > 0 || (r.a || 0) > 0)) cls += " partial";
+    else if (k < firstDay) cls += " untracked";
+    else cls += " miss";
+    if (k === today) cls += " today";
+    const mins = r ? Math.floor((r.ms || 0) / 60000) : 0;
+    cells += '<div class="' + cls + '" title="' + k + ' — ' + mins + ' min, ' + (r ? r.a : 0) + ' answered"></div>';
+  }
+
+  document.getElementById("dashBody").innerHTML =
+    '<div class="dash-cards">' +
+      '<div class="dash-stat"><div class="big">🔥 ' + streak + '</div><div class="lbl">day streak</div></div>' +
+      '<div class="dash-stat"><div class="big">' + learned + '</div><div class="lbl">of ' + total + ' learned</div></div>' +
+      '<div class="dash-stat"><div class="big">' + todayMin + 'm</div><div class="lbl">practiced today</div></div>' +
+      '<div class="dash-stat"><div class="big">' + acc + '%</div><div class="lbl">today\'s accuracy</div></div>' +
+    '</div>' +
+    '<div class="dash-goal"><b>Today\'s goal</b> — ' + todayMin + ' / ' + goalMin + ' min' +
+      '<div class="bar"><div style="width:' + goalPct + '%"></div></div></div>' +
+    '<div class="dash-makeup' + (makeupMin <= 0 ? ' zero' : '') + '">' +
+      (makeupMin <= 0
+        ? '✅ All caught up — no make-up time.'
+        : '⏳ <b>Make-up backlog: ' + makeupMin + ' min</b> across ' + missedDays + ' day' + (missedDays === 1 ? '' : 's') +
+          ' below goal. Add extra practice to catch up.') +
+    '</div>' +
+    '<div class="dash-section-title">Last 5 weeks</div>' +
+    '<div class="heat-legend">' +
+      '<span><i class="heat-dot hit"></i>hit goal</span>' +
+      '<span><i class="heat-dot partial"></i>partial</span>' +
+      '<span><i class="heat-dot miss"></i>missed</span>' +
+      '<span><i class="heat-dot untracked"></i>before tracking</span>' +
+    '</div>' +
+    '<div class="heat-grid">' + cells + '</div>';
+}
 function showLearnedPanel() {
   closeMenu(); hideAddPanel(); hideSpeakPanel(); hideGamesPanel();
   document.getElementById("homeScreen").classList.add("listing");
@@ -3399,6 +3544,7 @@ function renderLearnedList(q) {
   list.querySelectorAll(".learned-item").forEach(el => el.onclick = () => speak(el.dataset.tl)); // tap to hear it
 }
 document.getElementById("deckLearned").onclick = showLearnedPanel;
+document.getElementById("deckDash").onclick = showDashboard;
 document.getElementById("learnedSearch").addEventListener("input", e => renderLearnedList(e.target.value));
 
 // ---------- 🎮 Word Match: pair Tagalog with meaning. PRACTICE-ONLY (no SRS/mastery changes) ----------
@@ -3944,6 +4090,7 @@ restoreView(); // reopen whatever view you were on before a refresh (home, a pan
     if (dt > 0 && dt < MAX_DT && active) {
       totalMs += dt;
       if (remaining() > 0) elapsedMs += dt;
+      try { if (typeof recordPracticeMs === "function") recordPracticeMs(dt); } catch (e) {} // per-day minutes for the dashboard
     }
     // The moment we auto-pause (were active, now idle), rewind the ~IDLE_MS of grace that got
     // counted after you actually stopped tapping — that wasn't real practice. So when you come
