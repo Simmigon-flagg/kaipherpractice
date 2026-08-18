@@ -405,6 +405,52 @@
   .heat-cell.untracked { background: #23262f; }
   .heat-cell.today { outline: 2px solid var(--accent); outline-offset: 1px; }
   .heat-cell.future { background: transparent; }
+  .heat-cell.clickable { cursor: pointer; }
+  .heat-cell.clickable:active { transform: scale(.9); }
+  .dash-hint { color: var(--muted); font-size: .8rem; font-weight: 400; }
+
+  /* ---------- 🎓 Weekly School ---------- */
+  #schoolPanel { display: none; margin-top: 8px; text-align: left; }
+  #homeScreen.schooling > *:not(.nav-bar):not(.deck-menu):not(#schoolPanel) { display: none !important; }
+  #homeScreen.schooling #schoolPanel { display: block; }
+  .school-week { color: var(--muted); font-size: .92rem; margin: 4px 0 12px; text-align: center; }
+  .school-cards { display: grid; gap: 10px; }
+  .school-card { background: var(--card); border-radius: 14px; padding: 14px; display: flex; gap: 12px;
+    align-items: center; cursor: pointer; border: 2px solid transparent; }
+  .school-card:active { transform: scale(.99); }
+  .school-card.locked { opacity: .55; cursor: default; }
+  .sc-emoji { font-size: 1.9rem; }
+  .sc-name { font-weight: 700; font-size: 1.15rem; }
+  .sc-blurb { color: var(--muted); font-size: .85rem; margin-top: 2px; }
+  .sc-score { font-size: .9rem; margin-top: 4px; }
+  .sc-score .sc.pass { color: var(--good); font-weight: 700; }
+  .sc-score .sc.fail { color: var(--warn); font-weight: 700; }
+  /* runner */
+  .run-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .run-prog { color: var(--muted); font-size: .9rem; margin-left: auto; }
+  .q-card { background: var(--card); border-radius: 16px; padding: 18px; text-align: center; }
+  .q-dir { color: var(--muted); font-size: .95rem; }
+  .q-prompt { font-size: 1.9rem; font-weight: 800; margin: 8px 0 10px; }
+  .q-play { display: inline-block; margin-bottom: 10px; }
+  .q-choices { display: grid; gap: 8px; }
+  .q-choice { background: #2e3342; border: 2px solid transparent; color: var(--text); padding: 14px;
+    border-radius: 12px; font-size: 1.15rem; cursor: pointer; }
+  .q-choice.correct { background: var(--good); color: #08230f; font-weight: 700; }
+  .q-choice.wrong { background: var(--bad); color: #2a1010; font-weight: 700; }
+  .q-typed { display: flex; flex-direction: column; gap: 8px; }
+  .q-typed input { background: #14171d; border: 1px solid #3a4054; color: var(--text);
+    border-radius: 12px; padding: 14px; font-size: 1.3rem; text-align: center; }
+  .big-answer { border: none; border-radius: 12px; padding: 14px; font-size: 1.15rem; font-weight: 700;
+    cursor: pointer; background: var(--accent); color: #fff; }
+  .q-verdict { min-height: 24px; margin-top: 12px; font-weight: 700; font-size: 1.1rem; }
+  .q-verdict.good { color: var(--good); } .q-verdict.bad { color: var(--bad); }
+  .school-result { background: var(--card); border-radius: 18px; padding: 24px; text-align: center; margin-top: 8px; }
+  .res-emoji { font-size: 2.6rem; }
+  .res-grade { font-size: 3.4rem; font-weight: 900; line-height: 1; margin: 6px 0; }
+  .grade-A { color: var(--good); } .grade-B { color: #7ed957; } .grade-C { color: var(--warn); }
+  .grade-D { color: #f79b4f; } .grade-F { color: var(--bad); }
+  .res-pct { font-size: 1.6rem; font-weight: 800; }
+  .res-line { color: var(--muted); margin: 8px 0 16px; }
 </style>
 </head>
 <body>
@@ -431,7 +477,8 @@
       <button id="deckConvo">🗣️ Conversation</button>
       <button id="deckGames">🎮 Games</button>
       <button id="deckLearned">📖 Words &amp; sentences I know</button>
-      <button id="deckDash">📊 Dashboard <span class="nf-badge">🆕</span></button>
+      <button id="deckDash">📊 Dashboard</button>
+      <button id="deckSchool">🎓 School <span class="nf-badge">🆕</span></button>
       <button id="deckAdd">➕ Add words / sentences</button>
       <button id="deckSpeak">🎤 Speak &amp; Score</button>
     </div>
@@ -482,6 +529,11 @@
     <div id="dashPanel">
       <div class="add-title">📊 Your Progress</div>
       <div id="dashBody"></div>
+    </div>
+    <!-- 🎓 Weekly School: graded Quiz → Test → Exam → Final over this week's new items. -->
+    <div id="schoolPanel">
+      <div class="add-title">🎓 Weekly School</div>
+      <div id="schoolBody"></div>
     </div>
     <!-- 🎮 Games hub: pick a game. Games are PRACTICE-ONLY — they never change mastery/schedule. -->
     <div id="gamesPanel" class="game-view">
@@ -2968,6 +3020,7 @@ function finishAnswer(ok) {
   const { tl, en, key, rev } = current;
   const isNew = !progress[key];
   const p = progress[key] = progress[key] || { ok: 0, miss: 0 };
+  if (isNew && typeof markFirstSeen === "function") markFirstSeen(key); // for the weekly School section
   const v = document.getElementById("verdict");
   showPrompt(true);
   // daily stats + streak
@@ -3155,7 +3208,7 @@ document.getElementById("deckConvo").onclick = () => { closeMenu(); hidePanels()
 // Remember which view you're on so a refresh reopens it instead of dumping you back to the home deck.
 const VIEW_KEY = "tq_view";
 function saveView(v) { try { localStorage.setItem(VIEW_KEY, v); } catch (e) {} }
-function hidePanels() { closeMenu(); hideAddPanel(); hideSpeakPanel(); hideGamesPanel(); hideLearnedPanel(); hideDashboard(); updateDeckToggle(); saveView("home"); }
+function hidePanels() { closeMenu(); hideAddPanel(); hideSpeakPanel(); hideGamesPanel(); hideLearnedPanel(); hideDashboard(); hideSchoolPanel(); updateDeckToggle(); saveView("home"); }
 function restoreView() {
   let v = "home"; try { v = localStorage.getItem(VIEW_KEY) || "home"; } catch (e) {}
   try {
@@ -3163,6 +3216,7 @@ function restoreView() {
     else if (v === "speak") showSpeakPanel();
     else if (v === "learned") showLearnedPanel();
     else if (v === "dash") showDashboard();
+    else if (v === "school") showSchoolPanel();
     else if (v === "games") showGamesPanel();
     else if (v === "game:match") { showGamesPanel(); showOnlyGamePanel("matchPanel"); newMatchRound(); saveView(v); }
     else if (v === "game:listen") { showGamesPanel(); showOnlyGamePanel("listenPanel"); newListenQ(); saveView(v); }
@@ -3478,9 +3532,22 @@ function renderDashboard() {
     else if (k < firstDay) cls += " untracked";
     else cls += " miss";
     if (k === today) cls += " today";
+    const isMiss = cls.indexOf("miss") >= 0;
+    if (isMiss) cls += " clickable"; // click a missed day to start a catch-up session
     const mins = r ? Math.floor((r.ms || 0) / 60000) : 0;
-    cells += '<div class="' + cls + '" title="' + k + ' — ' + mins + ' min, ' + (r ? r.a : 0) + ' answered"></div>';
+    cells += '<div class="' + cls + '" data-d="' + k + '" title="' + k + ' — ' + mins + ' min, ' + (r ? r.a : 0) + ' answered' + (isMiss ? ' · tap to catch up' : '') + '"></div>';
   }
+
+  // weekly School assessment metrics (latest % per stage this week)
+  const wk = thisWeekId();
+  let examCards = "";
+  (typeof SCHOOL_STAGES !== "undefined" ? SCHOOL_STAGES : []).forEach(st => {
+    const best = examBest(st.id, wk);
+    const val = best >= 0 ? best + "%" : "—";
+    const col = best < 0 ? "var(--muted)" : (best >= st.pass ? "var(--good)" : "var(--bad)");
+    examCards += '<div class="dash-stat"><div class="big" style="color:' + col + '">' + val + '</div>' +
+      '<div class="lbl">' + st.emoji + ' ' + st.label + '</div></div>';
+  });
 
   document.getElementById("dashBody").innerHTML =
     '<div class="dash-cards">' +
@@ -3497,7 +3564,8 @@ function renderDashboard() {
         : '⏳ <b>Make-up backlog: ' + makeupMin + ' min</b> across ' + missedDays + ' day' + (missedDays === 1 ? '' : 's') +
           ' below goal. Add extra practice to catch up.') +
     '</div>' +
-    '<div class="dash-section-title">Last 5 weeks</div>' +
+    (examCards ? '<div class="dash-section-title">🎓 This week\'s assessments</div><div class="dash-cards">' + examCards + '</div>' : '') +
+    '<div class="dash-section-title">Last 5 weeks <span class="dash-hint">— tap a red day to catch up</span></div>' +
     '<div class="heat-legend">' +
       '<span><i class="heat-dot hit"></i>hit goal</span>' +
       '<span><i class="heat-dot partial"></i>partial</span>' +
@@ -3505,7 +3573,230 @@ function renderDashboard() {
       '<span><i class="heat-dot untracked"></i>before tracking</span>' +
     '</div>' +
     '<div class="heat-grid">' + cells + '</div>';
+
+  // wire clickable missed days → catch-up session
+  document.querySelectorAll("#dashBody .heat-cell.clickable").forEach(cell => {
+    cell.onclick = () => startCatchUp(cell.getAttribute("data-d"));
+  });
 }
+// ==========================================================================================
+// 🎓 WEEKLY SCHOOL — Quiz → Test → Exam → Final over THIS WEEK'S NEW words + sentences, scored.
+// Self-contained: does NOT touch the SRS engine (assessments are graded, not spaced repetition).
+// ==========================================================================================
+const FIRSTSEEN_KEY = "tq_firstSeen"; // { itemKey: "YYYY-MM-DD" } — when an item was first answered
+const EXAMS_KEY = "tq_exams";         // [{stage, week, date, correct, total, pct, ts}]
+function getFirstSeen() { try { return JSON.parse(localStorage.getItem(FIRSTSEEN_KEY) || "{}"); } catch (e) { return {}; } }
+function markFirstSeen(key) {
+  const k = (key || "").replace(/^rev:/, ""); // forward + reverse share one item
+  if (!k) return;
+  const m = getFirstSeen();
+  if (!m[k]) { m[k] = todayStr(); try { localStorage.setItem(FIRSTSEEN_KEY, JSON.stringify(m)); } catch (e) {} }
+}
+function weekStartStr(dObj) { const x = new Date(dObj); const day = (x.getDay() + 6) % 7; x.setDate(x.getDate() - day); x.setHours(0,0,0,0); return dayKey(x); }
+function thisWeekId() { return weekStartStr(new Date()); }
+// Every [tl,en] item across words + sentences (+ custom). Skips judge/convo rows.
+function enumerateItems() {
+  const out = [], seen = new Set();
+  const addRows = rows => rows.forEach(row => {
+    if (typeof row[1] === "boolean" || row[2] === "convo") return; // skip makes-sense / conversation
+    const tl = row[0], en = row[1];
+    if (!tl || !en || seen.has(tl)) return;
+    seen.add(tl); out.push({ tl, en, key: tl });
+  });
+  Object.values(WORD_CATEGORIES).forEach(c => addRows(c.words));
+  if (typeof SENTENCE_CATEGORIES !== "undefined") Object.values(SENTENCE_CATEGORIES).forEach(c => addRows(c.words || c.sentences || []));
+  addRows(customWords); addRows(customSentences);
+  return out;
+}
+function weeklyNewItems() {
+  const fs = getFirstSeen(), wk = thisWeekId();
+  return enumerateItems().filter(it => (fs[it.key] || "") >= wk);
+}
+function getExams() { try { return JSON.parse(localStorage.getItem(EXAMS_KEY) || "[]"); } catch (e) { return []; } }
+function saveExam(rec) { const e = getExams(); e.push(rec); try { localStorage.setItem(EXAMS_KEY, JSON.stringify(e)); } catch (e2) {} }
+function examBest(stage, week) { return getExams().filter(x => x.stage === stage && (!week || x.week === week)).reduce((m, x) => Math.max(m, x.pct), -1); }
+function examLast(stage, week) { const f = getExams().filter(x => x.stage === stage && (!week || x.week === week)); return f.length ? f[f.length - 1].pct : -1; }
+
+const SCHOOL_STAGES = [
+  { id: "quiz",  label: "Quiz",  emoji: "📝", dir: "tl2en", mode: "mc",    max: 10, pass: 70, blurb: "Multiple choice · hear Tagalog → pick meaning" },
+  { id: "test",  label: "Test",  emoji: "🧠", dir: "en2tl", mode: "mc",    max: 15, pass: 75, blurb: "Multiple choice · English → pick Tagalog" },
+  { id: "exam",  label: "Exam",  emoji: "📚", dir: "en2tl", mode: "typed", max: 15, pass: 80, blurb: "Type it · English → type the Tagalog" },
+  { id: "final", label: "Final", emoji: "🎓", dir: "mixed", mode: "mixed", max: 999, pass: 85, blurb: "Everything this week · mixed choice + typing" },
+];
+
+function normAns(s) {
+  return (s || "").toLowerCase().replace(/\(.*?\)/g, "").replace(/[^a-zñ0-9\s\/]/gi, "").replace(/\s+/g, " ").trim();
+}
+function answerMatches(typed, en) {
+  const t = normAns(typed);
+  if (!t) return false;
+  return normAns(en).split("/").map(v => v.trim()).some(v => v && v === t);
+}
+function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+let schoolRun = null;
+function showSchoolPanel() {
+  closeMenu(); hideAddPanel(); hideSpeakPanel(); hideGamesPanel(); hideLearnedPanel(); hideDashboard();
+  document.getElementById("homeScreen").classList.add("schooling");
+  ["deckWords","deckSentences","deckConj","deckJudge","deckGames","deckAdd","deckSpeak","deckLearned","deckDash"].forEach(id => { const b = document.getElementById(id); if (b) b.classList.remove("active"); });
+  const b = document.getElementById("deckSchool"); if (b) b.classList.add("active");
+  setSection("🎓 School");
+  renderSchoolHub();
+  saveView("school");
+  if (typeof flagNewFeature === "function") flagNewFeature("Weekly School — quiz, test, exam, final");
+}
+function hideSchoolPanel() {
+  document.getElementById("homeScreen").classList.remove("schooling");
+  const b = document.getElementById("deckSchool"); if (b) b.classList.remove("active");
+  schoolRun = null;
+}
+function renderSchoolHub() {
+  const pool = weeklyNewItems(), wk = thisWeekId();
+  let html = '<div class="school-week">This week\'s new: <b>' + pool.length + '</b> item' + (pool.length === 1 ? '' : 's') +
+    ' · resets every Monday</div>';
+  if (pool.length < 4) {
+    html += '<div class="empty">Learn at least 4 new words/sentences this week to unlock your assessments.' +
+      '<br>Do some practice, then come back.</div>';
+    document.getElementById("schoolBody").innerHTML = html;
+    return;
+  }
+  html += '<div class="school-cards">';
+  SCHOOL_STAGES.forEach((st, i) => {
+    const best = examBest(st.id, wk), last = examLast(st.id, wk);
+    const locked = i > 0 && examBest(SCHOOL_STAGES[i - 1].id, wk) < 0; // must attempt the previous stage first
+    const scoreLine = best >= 0
+      ? '<span class="sc ' + (best >= st.pass ? 'pass' : 'fail') + '">Best ' + best + '%</span>' + (last >= 0 ? ' · last ' + last + '%' : '')
+      : (locked ? '🔒 do ' + SCHOOL_STAGES[i - 1].label + ' first' : 'not taken yet');
+    html += '<div class="school-card' + (locked ? ' locked' : '') + '" data-stage="' + st.id + '">' +
+      '<div class="sc-emoji">' + st.emoji + '</div>' +
+      '<div class="sc-info"><div class="sc-name">' + st.label + '</div>' +
+      '<div class="sc-blurb">' + st.blurb + '</div>' +
+      '<div class="sc-score">' + scoreLine + '</div></div></div>';
+  });
+  html += '</div>';
+  document.getElementById("schoolBody").innerHTML = html;
+  document.querySelectorAll("#schoolBody .school-card:not(.locked)").forEach(el => {
+    el.onclick = () => startAssessment(el.getAttribute("data-stage"));
+  });
+}
+function startAssessment(stageId) {
+  const st = SCHOOL_STAGES.find(s => s.id === stageId); if (!st) return;
+  let pool = shuffle(weeklyNewItems().slice());
+  if (st.mode !== "mixed" && st.max < 999) pool = pool.slice(0, st.max);
+  const decoyPool = enumerateItems();
+  schoolRun = { st, pool, decoyPool, idx: 0, correct: 0, answered: false };
+  renderQuestion();
+}
+function qDirection(st, idx) {
+  if (st.dir === "tl2en") return "tl2en";
+  if (st.dir === "en2tl") return "en2tl";
+  return idx % 2 === 0 ? "tl2en" : "en2tl"; // mixed
+}
+function qMode(st, idx) {
+  if (st.mode === "mc") return "mc";
+  if (st.mode === "typed") return "typed";
+  return idx % 2 === 0 ? "mc" : "typed"; // mixed
+}
+function renderQuestion() {
+  const r = schoolRun; if (!r) return;
+  if (r.idx >= r.pool.length) return finishAssessment();
+  r.answered = false;
+  const it = r.pool[r.idx];
+  const dir = qDirection(r.st, r.idx), mode = qMode(r.st, r.idx);
+  const promptText = dir === "tl2en" ? it.tl : it.en;
+  const answerText = dir === "tl2en" ? it.en : it.tl;
+  const box = document.getElementById("schoolBody");
+  let html = '<div class="school-run">' +
+    '<div class="run-top"><button class="ghost" id="examQuit">← Quit</button>' +
+    '<span class="run-prog">' + r.st.emoji + ' ' + r.st.label + ' · ' + (r.idx + 1) + '/' + r.pool.length +
+    ' · ' + r.correct + ' ✓</span></div>' +
+    '<div class="q-card">' +
+      '<div class="q-dir">' + (dir === "tl2en" ? "What does this mean?" : "Say it in Tagalog:") + '</div>' +
+      '<div class="q-prompt">' + promptText + '</div>';
+  if (dir === "tl2en") html += '<button class="ghost q-play" id="examPlay">🔊 Hear it</button>';
+  if (mode === "mc") {
+    // 3 distractors from the same answer side
+    const others = r.decoyPool.filter(x => x.key !== it.key);
+    const distract = shuffle(others).slice(0, 3).map(x => dir === "tl2en" ? x.en : x.tl);
+    const opts = shuffle([answerText, ...distract]);
+    html += '<div class="q-choices">' + opts.map(o =>
+      '<button class="q-choice" data-val="' + encodeURIComponent(o) + '">' + o + '</button>').join('') + '</div>';
+  } else {
+    html += '<div class="q-typed"><input type="text" id="examInput" placeholder="type your answer…" ' +
+      'autocomplete="off" autocapitalize="off" autocorrect="off"><button class="big-answer" id="examSubmit">Check</button></div>';
+  }
+  html += '<div class="q-verdict" id="examVerdict"></div></div></div>';
+  box.innerHTML = html;
+
+  document.getElementById("examQuit").onclick = () => { schoolRun = null; renderSchoolHub(); };
+  const playBtn = document.getElementById("examPlay");
+  if (playBtn) { playBtn.onclick = () => { try { speak(it.tl); } catch (e) {} }; try { speak(it.tl); } catch (e) {} }
+  if (mode === "mc") {
+    document.querySelectorAll("#schoolBody .q-choice").forEach(btn => {
+      btn.onclick = () => gradeChoice(btn, decodeURIComponent(btn.getAttribute("data-val")), answerText, it);
+    });
+  } else {
+    const inp = document.getElementById("examInput");
+    const submit = () => gradeTyped(inp.value, answerText, it);
+    document.getElementById("examSubmit").onclick = submit;
+    inp.addEventListener("keydown", e => { if (e.key === "Enter") submit(); });
+    setTimeout(() => inp.focus(), 50);
+  }
+}
+function afterGrade(ok, correctText, it) {
+  const r = schoolRun; if (!r || r.answered) return;
+  r.answered = true;
+  if (ok) r.correct++;
+  const v = document.getElementById("examVerdict");
+  v.className = "q-verdict " + (ok ? "good" : "bad");
+  v.textContent = ok ? "✅ Correct" : "❌ " + it.tl + " = " + it.en;
+  try { if (typeof correctSound === "function" && ok) correctSound(); } catch (e) {}
+  setTimeout(() => { r.idx++; renderQuestion(); }, ok ? 750 : 1500);
+}
+function gradeChoice(btn, val, correctText, it) {
+  if (schoolRun.answered) return;
+  const ok = val === correctText;
+  document.querySelectorAll("#schoolBody .q-choice").forEach(b => {
+    b.disabled = true;
+    if (decodeURIComponent(b.getAttribute("data-val")) === correctText) b.classList.add("correct");
+  });
+  if (!ok) btn.classList.add("wrong");
+  afterGrade(ok, correctText, it);
+}
+function gradeTyped(typed, correctText, it) {
+  if (schoolRun.answered) return;
+  // for en2tl the answer is Tagalog (it.tl); match against that; for tl2en it's English (it.en)
+  const ok = correctText === it.tl ? normAns(typed) === normAns(it.tl) : answerMatches(typed, it.en);
+  afterGrade(ok, correctText, it);
+}
+function finishAssessment() {
+  const r = schoolRun; if (!r) return;
+  const total = r.pool.length, correct = r.correct;
+  const pct = total ? Math.round(100 * correct / total) : 0;
+  const passed = pct >= r.st.pass;
+  saveExam({ stage: r.st.id, week: thisWeekId(), date: todayStr(), correct, total, pct, ts: Date.now() });
+  const grade = pct >= 90 ? "A" : pct >= 80 ? "B" : pct >= 70 ? "C" : pct >= 60 ? "D" : "F";
+  document.getElementById("schoolBody").innerHTML =
+    '<div class="school-result">' +
+      '<div class="res-emoji">' + (passed ? "🎉" : "💪") + '</div>' +
+      '<div class="res-grade grade-' + grade + '">' + grade + '</div>' +
+      '<div class="res-pct">' + pct + '%</div>' +
+      '<div class="res-line">' + correct + ' / ' + total + ' correct — ' + r.st.emoji + ' ' + r.st.label +
+        (passed ? ' · passed! (need ' + r.st.pass + '%)' : ' · need ' + r.st.pass + '% to pass') + '</div>' +
+      '<button class="big-answer" id="examBack">Back to School</button>' +
+    '</div>';
+  document.getElementById("examBack").onclick = () => { schoolRun = null; renderSchoolHub(); };
+  try { if (passed && typeof correctSound === "function") correctSound(); } catch (e) {}
+  schoolRun = null;
+}
+// Catch-up: start a normal practice session (content isn't day-specific, so a missed day is made
+// up by practicing now). Called from clickable missed cells on the dashboard.
+function startCatchUp(dateLabel) {
+  if (!confirm("Start a catch-up practice session" + (dateLabel ? " for " + dateLabel : "") + "?")) return;
+  hidePanels();
+  if (typeof smartStart === "function") smartStart();
+}
+
 function showLearnedPanel() {
   closeMenu(); hideAddPanel(); hideSpeakPanel(); hideGamesPanel();
   document.getElementById("homeScreen").classList.add("listing");
@@ -3545,6 +3836,7 @@ function renderLearnedList(q) {
 }
 document.getElementById("deckLearned").onclick = showLearnedPanel;
 document.getElementById("deckDash").onclick = showDashboard;
+document.getElementById("deckSchool").onclick = showSchoolPanel;
 document.getElementById("learnedSearch").addEventListener("input", e => renderLearnedList(e.target.value));
 
 // ---------- 🎮 Word Match: pair Tagalog with meaning. PRACTICE-ONLY (no SRS/mastery changes) ----------
