@@ -124,6 +124,20 @@
   .game-card:active { background: #2e3342; }
   .game-card .game-name { font-size: 1.3rem; font-weight: 700; }
   .game-card .game-sub { font-size: .95rem; color: var(--muted); }
+  /* 🪢 Hangman */
+  .hang-stage { font-size: 3rem; text-align: center; margin: 8px 0 2px; }
+  .hang-lives { text-align: center; font-size: 1.2rem; letter-spacing: 3px; margin-bottom: 8px; }
+  .hang-clue { text-align: center; color: var(--muted); font-size: 1.05rem; margin-bottom: 6px; }
+  .hang-clue b { color: var(--text); }
+  .hang-word { text-align: center; font-size: 2rem; font-weight: 800; letter-spacing: 6px; margin: 10px 0 16px; min-height: 2.2rem; }
+  .hang-keys { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; max-width: 420px; margin: 0 auto; }
+  .hang-keys button { padding: 12px 0; border: none; border-radius: 8px; background: #2e3342; color: var(--text);
+    font-size: 1.1rem; font-weight: 700; cursor: pointer; text-transform: uppercase; }
+  .hang-keys button:disabled { opacity: .45; cursor: default; }
+  .hang-keys button.hit { background: var(--good); color: #08230f; }
+  .hang-keys button.miss { background: var(--bad); color: #2a1010; }
+  .hang-result { text-align: center; font-weight: 700; font-size: 1.2rem; min-height: 28px; margin-top: 14px; }
+  .hang-result.win { color: var(--good); } .hang-result.lose { color: var(--bad); }
   .games-soon { color: var(--muted); font-size: .95rem; margin-top: 16px; }
   .match-status { min-height: 24px; margin: 6px 0 12px; color: var(--muted); font-size: 1.05rem; }
   .match-grid { display: flex; gap: 10px; }
@@ -564,6 +578,10 @@
           <span class="game-name">🗣️ Conversation Match</span>
           <span class="game-sub">Flip &amp; match — pair each line with its natural reply</span>
         </button>
+        <button id="gameHangman" class="game-card" type="button">
+          <span class="game-name">🪢 Hangman <span class="nf-badge">🆕</span></span>
+          <span class="game-sub">Guess the Tagalog word letter by letter — the English is your clue</span>
+        </button>
       </div>
       <div class="games-soon">More games coming soon.</div>
     </div>
@@ -601,6 +619,18 @@
       <div id="rushWord" class="rush-word">—</div>
       <div class="choices" id="rushChoices"></div>
       <div id="rushOver" class="rush-over"></div>
+    </div>
+    <!-- 🪢 Hangman — guess a learned Tagalog word letter by letter; English meaning is the clue. -->
+    <div id="hangmanPanel" class="game-view">
+      <div style="text-align:left"><button id="hangBack" class="ghost-btn" type="button">← Games</button></div>
+      <div class="add-title">🪢 Hangman</div>
+      <div class="hang-stage" id="hangStage">🪢</div>
+      <div class="hang-lives" id="hangLives"></div>
+      <div class="hang-clue" id="hangClue">clue</div>
+      <div class="hang-word" id="hangWord">_ _ _</div>
+      <div class="hang-keys" id="hangKeys"></div>
+      <div class="hang-result" id="hangResult"></div>
+      <button id="hangNew" class="play-btn" style="display:none;margin:12px auto 0">New word →</button>
     </div>
     <!-- 🃏 Memory Match — flip two cards to find a Tagalog word + its meaning. Practice-only. -->
     <div id="memPanel" class="game-view">
@@ -3221,6 +3251,7 @@ function restoreView() {
     else if (v === "game:match") { showGamesPanel(); showOnlyGamePanel("matchPanel"); newMatchRound(); saveView(v); }
     else if (v === "game:listen") { showGamesPanel(); showOnlyGamePanel("listenPanel"); newListenQ(); saveView(v); }
     else if (v === "game:rush") { showGamesPanel(); showOnlyGamePanel("rushPanel"); startRush(); saveView(v); }
+    else if (v === "game:hangman") { showGamesPanel(); showOnlyGamePanel("hangmanPanel"); startHangman(); saveView(v); }
     else if (v === "game:mem") { showGamesPanel(); openMemGame("words"); }
     else if (v === "game:memS") { showGamesPanel(); openMemGame("sentences"); }
     else if (v === "game:memC") { showGamesPanel(); openMemGame("convo"); }
@@ -3843,7 +3874,74 @@ document.getElementById("learnedSearch").addEventListener("input", e => renderLe
 let matchSel = null, matchLeft = 0;
 let rushTimer = null, rushHearts = 0, rushScore = 0, rushCombo = 0, rushItem = null, rushDuration = 0, rushRemain = 0, rushBusy = false;
 // ---------- 🎮 Games hub (Word Match + Listen & Pick + Streak Rush; all practice-only) ----------
-const GAME_PANELS = ["gamesPanel", "matchPanel", "listenPanel", "rushPanel", "memPanel"];
+// ---------- 🪢 Hangman ----------
+const HANG_MAX = 6;
+const HANG_STAGES = ["🪢","😀","🙂","😐","😟","😣","💀"]; // index by wrong count
+let hang = null;
+function hangPool() {
+  const pool = (knownWords().length >= 6 ? knownWords() : allWords())
+    .filter(r => typeof r[1] !== "boolean" && r[2] !== "convo")
+    .map(r => ({ tl: r[0], en: r[1] }))
+    .filter(w => { const letters = (w.tl.match(/[a-zñ]/gi) || []).length; return letters >= 3 && letters <= 14; });
+  return pool;
+}
+function startHangman() {
+  const pool = hangPool();
+  if (!pool.length) { document.getElementById("hangWord").textContent = "Learn a few words first!"; return; }
+  const pick = pool[Math.floor(Math.random() * pool.length)];
+  hang = { tl: pick.tl, en: pick.en, guessed: new Set(), wrong: 0, done: false };
+  document.getElementById("hangResult").textContent = ""; document.getElementById("hangResult").className = "hang-result";
+  document.getElementById("hangNew").style.display = "none";
+  document.getElementById("hangClue").innerHTML = "Meaning: <b>" + hang.en + "</b>";
+  buildHangKeys();
+  renderHangman();
+}
+function buildHangKeys() {
+  const box = document.getElementById("hangKeys"); box.innerHTML = "";
+  "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ".split("").forEach(ch => {
+    const b = document.createElement("button"); b.textContent = ch; b.setAttribute("data-k", ch);
+    b.onclick = () => hangGuess(ch);
+    box.appendChild(b);
+  });
+}
+function renderHangman() {
+  document.getElementById("hangStage").textContent = HANG_STAGES[Math.min(hang.wrong, HANG_MAX)];
+  document.getElementById("hangLives").textContent = "❤️".repeat(HANG_MAX - hang.wrong) + "🖤".repeat(hang.wrong);
+  const shown = hang.tl.split("").map(ch => {
+    if (!/[a-zñ]/i.test(ch)) return ch === " " ? "  " : ch; // reveal spaces/hyphens
+    return hang.guessed.has(ch.toUpperCase()) ? ch : "_";
+  }).join(" ");
+  document.getElementById("hangWord").textContent = shown;
+}
+function hangGuess(ch) {
+  if (!hang || hang.done || hang.guessed.has(ch)) return;
+  hang.guessed.add(ch);
+  const inWord = hang.tl.toUpperCase().includes(ch);
+  const btn = document.querySelector('#hangKeys button[data-k="' + ch + '"]');
+  if (btn) { btn.disabled = true; btn.classList.add(inWord ? "hit" : "miss"); }
+  if (!inWord) hang.wrong++;
+  renderHangman();
+  // win check: every letter char revealed
+  const won = hang.tl.split("").every(c => !/[a-zñ]/i.test(c) || hang.guessed.has(c.toUpperCase()));
+  if (won) { hangEnd(true); return; }
+  if (hang.wrong >= HANG_MAX) hangEnd(false);
+}
+function hangEnd(won) {
+  hang.done = true;
+  document.querySelectorAll("#hangKeys button").forEach(b => b.disabled = true);
+  const res = document.getElementById("hangResult");
+  if (won) {
+    res.textContent = "✅ " + hang.tl + " = " + hang.en; res.className = "hang-result win";
+    try { correctSound(); } catch (e) {}
+  } else {
+    res.textContent = "💀 It was: " + hang.tl + " = " + hang.en; res.className = "hang-result lose";
+    document.getElementById("hangWord").textContent = hang.tl.split("").join(" ");
+  }
+  try { speak(hang.tl); } catch (e) {}
+  document.getElementById("hangNew").style.display = "block";
+}
+
+const GAME_PANELS = ["gamesPanel", "matchPanel", "listenPanel", "rushPanel", "memPanel", "hangmanPanel"];
 function showOnlyGamePanel(id) { GAME_PANELS.forEach(p => document.getElementById(p).classList.toggle("show", p === id)); }
 function hideGamesPanel() {
   clearInterval(rushTimer); // stop the Streak Rush countdown if it's running
@@ -4057,6 +4155,9 @@ function rushGameOver() {
 }
 document.getElementById("gameRush").onclick = () => { showOnlyGamePanel("rushPanel"); startRush(); saveView("game:rush"); };
 document.getElementById("rushBack").onclick = () => { clearInterval(rushTimer); showGamesPanel(); };
+document.getElementById("gameHangman").onclick = () => { showOnlyGamePanel("hangmanPanel"); startHangman(); saveView("game:hangman"); };
+document.getElementById("hangBack").onclick = () => showGamesPanel();
+document.getElementById("hangNew").onclick = startHangman;
 
 // ---------- 🃏 Memory Match: flip two cards to find a pair (words / sentences / conversation) ----------
 let memFirst = null, memLock = false, memMatched = 0, memMoves = 0, memTotalPairs = 0, memMode = "words";
