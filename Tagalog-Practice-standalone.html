@@ -125,6 +125,7 @@
   .game-card .game-name { font-size: 1.3rem; font-weight: 700; }
   .game-card .game-sub { font-size: .95rem; color: var(--muted); }
   /* 🪢 Hangman */
+  .rush-word.bonus { color: var(--warn); text-shadow: 0 0 12px rgba(217,164,65,.5); }
   .hang-stage { font-size: 3rem; text-align: center; margin: 8px 0 2px; }
   .hang-lives { text-align: center; font-size: 1.2rem; letter-spacing: 3px; margin-bottom: 8px; }
   .hang-clue { text-align: center; color: var(--muted); font-size: 1.05rem; margin-bottom: 6px; }
@@ -4226,14 +4227,17 @@ document.getElementById("listenPlay").onclick = () => { if (listenItem) speak(li
 
 // ---------- ⚡ Streak Rush: fast recall, combo, 3 lives, high score (practice-only) ----------
 const RUSH_BEST = "tq_rushBest";
+const RUSH_START_HEARTS = 3, RUSH_HEART_CAP = 5, RUSH_BONUS_EVERY = 5; // bonus ⭐ question every 5 correct
+let rushIsBonus = false, rushBonusPending = false;
 function rushBest() { return +(localStorage.getItem(RUSH_BEST) || 0); }
 function updateRushHud() {
-  document.getElementById("rushHearts").textContent = "❤️".repeat(rushHearts) + "🖤".repeat(Math.max(0, 3 - rushHearts));
+  const hearts = "❤️".repeat(rushHearts) + (rushHearts < RUSH_START_HEARTS ? "🖤".repeat(RUSH_START_HEARTS - rushHearts) : "");
+  document.getElementById("rushHearts").textContent = hearts;
   document.getElementById("rushCombo").textContent = "Combo " + rushCombo;
   document.getElementById("rushBest").textContent = "Best " + Math.max(rushBest(), rushScore);
 }
 function startRush() {
-  rushHearts = 3; rushScore = 0; rushCombo = 0;
+  rushHearts = RUSH_START_HEARTS; rushScore = 0; rushCombo = 0; rushIsBonus = false; rushBonusPending = false;
   document.getElementById("rushOver").innerHTML = "";
   document.getElementById("rushWord").style.display = "";
   document.getElementById("rushChoices").style.display = "";
@@ -4249,39 +4253,58 @@ function nextRush() {
   if (pool.length < 4) { ved.textContent = "Learn a few words first, then come back."; return; }
   rushItem = pool[Math.floor(Math.random() * pool.length)];
   const [tl, en] = rushItem;
-  ved.textContent = tl;
-  speak(tl);
-  const opts = [en], seen = new Set([normAnswer(en)]), others = pool.slice();
+  // ⭐ BONUS round: reverse (see English → pick Tagalog) and a correct answer EARNS a heart.
+  rushIsBonus = rushBonusPending && rushHearts < RUSH_HEART_CAP;
+  rushBonusPending = false;
+  const prompt = rushIsBonus ? en : tl;         // bonus shows English
+  const correct = rushIsBonus ? tl : en;        // bonus answer is Tagalog
+  ved.textContent = (rushIsBonus ? "⭐ " : "") + prompt;
+  if (!rushIsBonus) speak(tl); // bonus is a recall test — don't read the answer aloud
+  const opts = [correct], seen = new Set([normAnswer(correct)]), others = pool.slice();
   while (opts.length < 4 && others.length) {
-    const e = others.splice(Math.floor(Math.random() * others.length), 1)[0][1];
+    const row = others.splice(Math.floor(Math.random() * others.length), 1)[0];
+    const e = rushIsBonus ? row[0] : row[1];
     const k = normAnswer(e); if (!seen.has(k)) { seen.add(k); opts.push(e); }
   }
   for (let i = opts.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [opts[i], opts[j]] = [opts[j], opts[i]]; }
-  opts.forEach(o => { const b = document.createElement("button"); b.className = "choice"; b.textContent = o; b.onclick = () => rushAnswer(o, en, b); box.appendChild(b); });
-  // timer speeds up as your score climbs (down to ~2.2s) — that's the pressure/flow hook
-  rushDuration = Math.max(2200, 4200 - rushScore * 90); rushRemain = rushDuration;
+  opts.forEach(o => { const b = document.createElement("button"); b.className = "choice"; b.textContent = o; b.onclick = () => rushAnswer(o, correct, b); box.appendChild(b); });
+  document.getElementById("rushWord").classList.toggle("bonus", rushIsBonus);
+  // bonus gives a little more time; normal timer speeds up as your score climbs (down to ~2.2s)
+  rushDuration = rushIsBonus ? 5000 : Math.max(2200, 4200 - rushScore * 90); rushRemain = rushDuration;
   const fill = document.getElementById("rushTimeFill"); fill.style.width = "100%";
   rushTimer = setInterval(() => {
     rushRemain -= 50;
     fill.style.width = Math.max(0, rushRemain / rushDuration * 100) + "%";
-    if (rushRemain <= 0) { clearInterval(rushTimer); rushMiss(null, rushItem[1]); }
+    if (rushRemain <= 0) { clearInterval(rushTimer); rushMiss(null, rushIsBonus ? rushItem[0] : rushItem[1], rushIsBonus); }
   }, 50);
 }
 function rushAnswer(choice, correct, btn) {
   if (rushBusy) return;
   clearInterval(rushTimer);
+  const bonus = rushIsBonus;
   if (choice === correct) {
     rushBusy = true; rushScore++; rushCombo++; correctSound();
-    btn.classList.add("correct"); updateRushHud();
-    setTimeout(nextRush, 320);
+    if (btn) btn.classList.add("correct");
+    if (bonus && rushHearts < RUSH_HEART_CAP) { rushHearts++; flashRush("💚 +1 heart!"); }
+    else if (!bonus && rushScore % RUSH_BONUS_EVERY === 0 && rushHearts < RUSH_HEART_CAP) { rushBonusPending = true; }
+    updateRushHud();
+    setTimeout(nextRush, bonus ? 500 : 320);
   } else {
-    rushMiss(btn, correct);
+    rushMiss(btn, correct, bonus);
   }
 }
-function rushMiss(btn, correct) {
+function flashRush(msg) {
+  const el = document.getElementById("rushOver");
+  el.innerHTML = "<div style='color:var(--good);font-weight:800'>" + msg + "</div>";
+  setTimeout(() => { if (el.textContent === msg) el.innerHTML = ""; }, 900);
+}
+function rushMiss(btn, correct, bonus) {
   rushBusy = true; clearInterval(rushTimer);
   if (btn) btn.classList.add("wrong");
   document.querySelectorAll("#rushChoices .choice").forEach(b => { b.disabled = true; if (b.textContent === correct) b.classList.add("correct"); });
+  if (bonus) { // missing a BONUS costs nothing — it's pure upside
+    setTimeout(nextRush, 900); return;
+  }
   buzz(); rushCombo = 0; rushHearts--; updateRushHud();
   setTimeout(rushHearts <= 0 ? rushGameOver : nextRush, 1000);
 }
@@ -4295,9 +4318,12 @@ function rushGameOver() {
   document.getElementById("rushOver").innerHTML =
     "<div style='font-size:1.7rem;font-weight:800'>" + (isBest ? "🏆 New best!" : "Game over") + "</div>" +
     "<div style='margin:10px 0'>Score: <b>" + rushScore + "</b> &nbsp;·&nbsp; Best: <b>" + Math.max(prev, rushScore) + "</b></div>" +
-    "<button id='rushAgain' class='play-btn' type='button' style='margin:12px auto 0;display:block'>▶ Play again</button>";
+    "<button id='rushAgain' class='play-btn' type='button' style='margin:12px auto 0;display:block'>▶ Play again</button>" +
+    "<div style='color:var(--muted);font-size:.85rem;margin-top:8px'>next game starting…</div>";
   document.getElementById("rushAgain").onclick = startRush;
   updateRushHud();
+  // auto-restart after a few seconds (unless you leave or tap Play again first)
+  setTimeout(() => { if (document.getElementById("rushPanel").classList.contains("show") && rushHearts <= 0) startRush(); }, 3200);
 }
 document.getElementById("gameRush").onclick = () => { showOnlyGamePanel("rushPanel"); startRush(); saveView("game:rush"); };
 document.getElementById("rushBack").onclick = () => { clearInterval(rushTimer); showGamesPanel(); };
