@@ -4082,6 +4082,9 @@ function hangEnd(won) {
   }
   try { speak(hang.tl); } catch (e) {}
   document.getElementById("hangNew").style.display = "block";
+  // auto-advance to the next word after showing the result briefly
+  const stamp = hang;
+  setTimeout(() => { if (hang === stamp && document.getElementById("hangmanPanel").classList.contains("show")) startHangman(); }, won ? 1800 : 2600);
 }
 
 const GAME_PANELS = ["gamesPanel", "matchPanel", "listenPanel", "rushPanel", "memPanel", "hangmanPanel"];
@@ -4377,7 +4380,10 @@ function memTap(card) {
     card.classList.remove("flipped"); card.classList.add("matched");
     correctSound(); speak(card.dataset.key);
     memFirst = null; memMatched++; updateMemStatus();
-    if (memMatched >= memTotalPairs) setTimeout(() => { document.getElementById("memStatus").innerHTML = "🎉 Cleared in " + memMoves + " moves! Tap New game."; }, 500);
+    if (memMatched >= memTotalPairs) setTimeout(() => {
+      document.getElementById("memStatus").innerHTML = "🎉 Cleared in " + memMoves + " moves! Next game…";
+      setTimeout(() => { if (document.getElementById("memPanel").classList.contains("show")) newMemRound(); }, 1800); // auto-advance
+    }, 500);
   } else { // wrong: flip both back after a beat
     memLock = true; const a = memFirst, b = card; memFirst = null; updateMemStatus();
     setTimeout(() => { memUnflip(a); memUnflip(b); memLock = false; }, 950);
