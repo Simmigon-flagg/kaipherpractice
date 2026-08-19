@@ -4253,29 +4253,28 @@ function nextRush() {
   if (pool.length < 4) { ved.textContent = "Learn a few words first, then come back."; return; }
   rushItem = pool[Math.floor(Math.random() * pool.length)];
   const [tl, en] = rushItem;
-  // ⭐ BONUS round: reverse (see English → pick Tagalog) and a correct answer EARNS a heart.
+  // ⭐ BONUS round: a correct answer EARNS a heart. Same forward format (hear Tagalog → pick
+  // meaning) so it still reads aloud; the ⭐ shows as a flash + gold glow, NOT on the word.
   rushIsBonus = rushBonusPending && rushHearts < RUSH_HEART_CAP;
   rushBonusPending = false;
-  const prompt = rushIsBonus ? en : tl;         // bonus shows English
-  const correct = rushIsBonus ? tl : en;        // bonus answer is Tagalog
-  ved.textContent = (rushIsBonus ? "⭐ " : "") + prompt;
-  if (!rushIsBonus) speak(tl); // bonus is a recall test — don't read the answer aloud
-  const opts = [correct], seen = new Set([normAnswer(correct)]), others = pool.slice();
+  ved.textContent = tl;   // just the word — no star prefix (keeps TTS + display clean)
+  speak(tl);
+  const opts = [en], seen = new Set([normAnswer(en)]), others = pool.slice();
   while (opts.length < 4 && others.length) {
-    const row = others.splice(Math.floor(Math.random() * others.length), 1)[0];
-    const e = rushIsBonus ? row[0] : row[1];
+    const e = others.splice(Math.floor(Math.random() * others.length), 1)[0][1];
     const k = normAnswer(e); if (!seen.has(k)) { seen.add(k); opts.push(e); }
   }
   for (let i = opts.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [opts[i], opts[j]] = [opts[j], opts[i]]; }
-  opts.forEach(o => { const b = document.createElement("button"); b.className = "choice"; b.textContent = o; b.onclick = () => rushAnswer(o, correct, b); box.appendChild(b); });
+  opts.forEach(o => { const b = document.createElement("button"); b.className = "choice"; b.textContent = o; b.onclick = () => rushAnswer(o, en, b); box.appendChild(b); });
   document.getElementById("rushWord").classList.toggle("bonus", rushIsBonus);
+  if (rushIsBonus) flashRush("⭐ Bonus — earn a heart!");
   // bonus gives a little more time; normal timer speeds up as your score climbs (down to ~2.2s)
-  rushDuration = rushIsBonus ? 5000 : Math.max(2200, 4200 - rushScore * 90); rushRemain = rushDuration;
+  rushDuration = rushIsBonus ? 3800 : Math.max(2200, 4200 - rushScore * 90); rushRemain = rushDuration;
   const fill = document.getElementById("rushTimeFill"); fill.style.width = "100%";
   rushTimer = setInterval(() => {
     rushRemain -= 50;
     fill.style.width = Math.max(0, rushRemain / rushDuration * 100) + "%";
-    if (rushRemain <= 0) { clearInterval(rushTimer); rushMiss(null, rushIsBonus ? rushItem[0] : rushItem[1], rushIsBonus); }
+    if (rushRemain <= 0) { clearInterval(rushTimer); rushMiss(null, rushItem[1], rushIsBonus); }
   }, 50);
 }
 function rushAnswer(choice, correct, btn) {
