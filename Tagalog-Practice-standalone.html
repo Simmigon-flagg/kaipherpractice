@@ -4215,10 +4215,10 @@ function listenAnswer(btn, choice, correct) {
   document.querySelectorAll("#listenChoices .choice").forEach(b => { b.disabled = true; if (b.textContent === correct) b.classList.add("correct"); });
   if (choice === correct) {
     ved.className = "verdict good"; ved.textContent = "✅ " + listenItem[0] + " = " + correct;
-    correctSound(); setTimeout(newListenQ, 1500);
+    correctSound(); setTimeout(newListenQ, 700); // advance faster; chime still plays, next word still speaks
   } else {
     btn.classList.add("wrong"); ved.className = "verdict bad"; ved.textContent = "❌ " + listenItem[0] + " = " + correct;
-    buzz(); setTimeout(newListenQ, 2400);
+    buzz(); setTimeout(newListenQ, 1300);
   }
 }
 document.getElementById("gameListen").onclick = () => { showOnlyGamePanel("listenPanel"); newListenQ(); saveView("game:listen"); };
