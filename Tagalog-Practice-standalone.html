@@ -426,6 +426,11 @@
 
   /* ---------- 🎓 Weekly School ---------- */
   /* 💬 Chat */
+  #hardPanel { display: none; margin-top: 8px; text-align: left; }
+  #homeScreen.harding > *:not(.nav-bar):not(.deck-menu):not(#hardPanel) { display: none !important; }
+  #homeScreen.harding #hardPanel { display: block; }
+  .hard-hud { display: flex; gap: 14px; justify-content: center; color: var(--muted); font-size: .95rem; margin: 8px 0; }
+  .hard-hud b { color: var(--text); }
   #chatPanel { display: none; margin-top: 8px; text-align: left; }
   #homeScreen.chatting > *:not(.nav-bar):not(.deck-menu):not(#chatPanel) { display: none !important; }
   #homeScreen.chatting #chatPanel { display: flex; flex-direction: column; }
@@ -510,7 +515,8 @@
       <button id="deckLearned">📖 Words &amp; sentences I know</button>
       <button id="deckDash">📊 Dashboard</button>
       <button id="deckSchool">🎓 School</button>
-      <button id="deckChat">💬 Chat with a friend <span class="nf-badge">🆕</span></button>
+      <button id="deckChat">💬 Chat with a friend</button>
+      <button id="deckHard">🧠 Hard Mode <span class="nf-badge">🆕</span></button>
       <button id="deckAdd">➕ Add words / sentences</button>
       <button id="deckSpeak">🎤 Speak &amp; Score</button>
     </div>
@@ -576,6 +582,12 @@
         <input type="text" id="chatText" placeholder="Type in Tagalog…" autocomplete="off">
         <button id="chatSend" class="play-btn" style="margin:0">Send</button>
       </div>
+    </div>
+    <!-- 🧠 Hard Mode: drills your LEARNED words that sound/mean something similar; the look-alike is the trap answer. -->
+    <div id="hardPanel">
+      <div class="add-title">🧠 Hard Mode</div>
+      <div class="chat-sub">Your learned words that sound or mean something close — the trap answer is the look-alike. Forces your brain to tell them apart.</div>
+      <div id="hardBody"></div>
     </div>
     <!-- 🎮 Games hub: pick a game. Games are PRACTICE-ONLY — they never change mastery/schedule. -->
     <div id="gamesPanel" class="game-view">
@@ -3266,7 +3278,7 @@ document.getElementById("deckConvo").onclick = () => { closeMenu(); hidePanels()
 // Remember which view you're on so a refresh reopens it instead of dumping you back to the home deck.
 const VIEW_KEY = "tq_view";
 function saveView(v) { try { localStorage.setItem(VIEW_KEY, v); } catch (e) {} }
-function hidePanels() { closeMenu(); hideAddPanel(); hideSpeakPanel(); hideGamesPanel(); hideLearnedPanel(); hideDashboard(); hideSchoolPanel(); hideChatPanel(); updateDeckToggle(); saveView("home"); }
+function hidePanels() { closeMenu(); hideAddPanel(); hideSpeakPanel(); hideGamesPanel(); hideLearnedPanel(); hideDashboard(); hideSchoolPanel(); hideChatPanel(); hideHardPanel(); updateDeckToggle(); saveView("home"); }
 function restoreView() {
   let v = "home"; try { v = localStorage.getItem(VIEW_KEY) || "home"; } catch (e) {}
   try {
@@ -3276,6 +3288,7 @@ function restoreView() {
     else if (v === "dash") showDashboard();
     else if (v === "school") showSchoolPanel();
     else if (v === "chat") showChatPanel();
+    else if (v === "hard") showHardPanel();
     else if (v === "games") showGamesPanel();
     else if (v === "game:match") { showGamesPanel(); showOnlyGamePanel("matchPanel"); newMatchRound(); saveView(v); }
     else if (v === "game:listen") { showGamesPanel(); showOnlyGamePanel("listenPanel"); newListenQ(); saveView(v); }
@@ -3806,6 +3819,100 @@ function hideChatPanel() {
   const b = document.getElementById("deckChat"); if (b) b.classList.remove("active");
 }
 
+// ==========================================================================================
+// 🧠 HARD MODE — drills LEARNED words that are easily confused (sound-alike or close meaning).
+// The confusable partner is used as the trap distractor, forcing you to discriminate. Practice-only.
+// ==========================================================================================
+function levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  if (Math.abs(m - n) > 2) return 99; // early out — we only care about small distances
+  const dp = Array.from({ length: m + 1 }, (_, i) => [i, ...Array(n).fill(0)]);
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) for (let j = 1; j <= n; j++)
+    dp[i][j] = Math.min(dp[i-1][j] + 1, dp[i][j-1] + 1, dp[i-1][j-1] + (a[i-1] === b[j-1] ? 0 : 1));
+  return dp[m][n];
+}
+function normLetters(s) { return (s || "").toLowerCase().replace(/[^a-zñ]/gi, ""); }
+function meaningTokens(en) { return (en || "").toLowerCase().replace(/\(.*?\)/g, "").split(/[^a-z]+/).filter(w => w.length >= 4); }
+// Build the confusable graph over learned words. Each item -> list of partner items (with reason).
+function buildConfusables() {
+  const items = knownWords().map(r => ({ tl: r[0], en: r[1], k: normLetters(r[0]) })).filter(x => x.k.length >= 3);
+  const partners = new Map(); // tl -> [{tl,en,reason}]
+  const add = (a, b, reason) => { const arr = partners.get(a.tl) || []; if (!arr.some(p => p.tl === b.tl)) arr.push({ tl: b.tl, en: b.en, reason }); partners.set(a.tl, arr); };
+  // meaning buckets: words sharing a 4+ letter English token
+  const byToken = new Map();
+  items.forEach(it => meaningTokens(it.en).forEach(t => { const a = byToken.get(t) || []; a.push(it); byToken.set(t, a); }));
+  for (let i = 0; i < items.length; i++) {
+    for (let j = i + 1; j < items.length; j++) {
+      const A = items[i], B = items[j];
+      if (Math.abs(A.k.length - B.k.length) <= 2 && A.k !== B.k && levenshtein(A.k, B.k) <= 2) { add(A, B, "sounds similar"); add(B, A, "sounds similar"); }
+    }
+  }
+  byToken.forEach(list => { if (list.length > 1) for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) { if (list[i].tl !== list[j].tl) { add(list[i], list[j], "close meaning"); add(list[j], list[i], "close meaning"); } } });
+  return { items, partners };
+}
+let hardRun = null;
+function showHardPanel() {
+  closeMenu(); hideAddPanel(); hideSpeakPanel(); hideGamesPanel(); hideLearnedPanel(); hideDashboard(); hideSchoolPanel(); hideChatPanel();
+  document.getElementById("homeScreen").classList.add("harding");
+  ["deckWords","deckSentences","deckConj","deckJudge","deckGames","deckAdd","deckSpeak","deckLearned","deckDash","deckSchool","deckChat"].forEach(id => { const b = document.getElementById(id); if (b) b.classList.remove("active"); });
+  const b = document.getElementById("deckHard"); if (b) b.classList.add("active");
+  setSection("🧠 Hard Mode");
+  startHard();
+  saveView("hard");
+  if (typeof flagNewFeature === "function") flagNewFeature("Hard Mode — confusable words");
+}
+function hideHardPanel() {
+  document.getElementById("homeScreen").classList.remove("harding");
+  const b = document.getElementById("deckHard"); if (b) b.classList.remove("active");
+  hardRun = null;
+}
+function startHard() {
+  const { partners } = buildConfusables();
+  // pool = learned words that actually HAVE a confusable partner
+  const pool = knownWords().map(r => ({ tl: r[0], en: r[1] })).filter(x => (partners.get(x.tl) || []).length);
+  if (pool.length < 3) {
+    document.getElementById("hardBody").innerHTML = '<div class="empty">Not enough confusable words yet. Learn more words (especially sound-alikes) and this fills up — your trickiest pairs will show here.</div>';
+    return;
+  }
+  hardRun = { partners, pool, correct: 0, streak: 0, best: 0, answered: false };
+  renderHardQ();
+}
+function renderHardQ() {
+  const r = hardRun; if (!r) return;
+  r.answered = false;
+  const it = r.pool[Math.floor(Math.random() * r.pool.length)];
+  const parts = (r.partners.get(it.tl) || []).slice();
+  const reason = parts[0] ? parts[0].reason : "tricky";
+  // choices: correct meaning + the confusable partners' meanings (the traps) + fill to 4
+  const opts = [it.en]; const seen = new Set([normAns(it.en)]);
+  shuffle(parts).forEach(p => { const k = normAns(p.en); if (opts.length < 4 && !seen.has(k)) { seen.add(k); opts.push(p.en); } });
+  const fill = shuffle(knownWords().slice());
+  for (let i = 0; opts.length < 4 && i < fill.length; i++) { const e = fill[i][1]; const k = normAns(e); if (!seen.has(k)) { seen.add(k); opts.push(e); } }
+  shuffle(opts);
+  const box = document.getElementById("hardBody");
+  box.innerHTML =
+    '<div class="hard-hud"><span>Streak <b>' + r.streak + '</b></span><span>Best <b>' + r.best + '</b></span><span>✓ <b>' + r.correct + '</b></span></div>' +
+    '<div class="q-card"><div class="q-dir">🧠 ' + reason + ' — pick the right meaning</div>' +
+    '<div class="q-prompt">' + it.tl + '</div>' +
+    '<button class="ghost-btn q-play" id="hardPlay">🔊 Hear it</button>' +
+    '<div class="q-choices">' + opts.map(o => '<button class="q-choice" data-v="' + encodeURIComponent(o) + '">' + o + '</button>').join('') + '</div>' +
+    '<div class="q-verdict" id="hardVerdict"></div></div>';
+  document.getElementById("hardPlay").onclick = () => { try { speak(it.tl); } catch (e) {} };
+  try { speak(it.tl); } catch (e) {}
+  document.querySelectorAll("#hardBody .q-choice").forEach(btn => { btn.onclick = () => gradeHard(btn, decodeURIComponent(btn.getAttribute("data-v")), it); });
+}
+function gradeHard(btn, val, it) {
+  const r = hardRun; if (!r || r.answered) return;
+  r.answered = true;
+  const ok = normAns(val) === normAns(it.en);
+  document.querySelectorAll("#hardBody .q-choice").forEach(b => { b.disabled = true; if (normAns(decodeURIComponent(b.getAttribute("data-v"))) === normAns(it.en)) b.classList.add("correct"); });
+  const v = document.getElementById("hardVerdict");
+  if (ok) { r.correct++; r.streak++; r.best = Math.max(r.best, r.streak); v.className = "q-verdict good"; v.textContent = "✅ " + it.tl + " = " + it.en; try { correctSound(); } catch (e) {} }
+  else { r.streak = 0; if (btn) btn.classList.add("wrong"); v.className = "q-verdict bad"; v.textContent = "❌ " + it.tl + " = " + it.en; try { buzz(); } catch (e) {} }
+  setTimeout(() => { if (hardRun === r && document.getElementById("homeScreen").classList.contains("harding")) renderHardQ(); }, ok ? 850 : 1600);
+}
+
 let schoolRun = null;
 function showSchoolPanel() {
   closeMenu(); hideAddPanel(); hideSpeakPanel(); hideGamesPanel(); hideLearnedPanel(); hideDashboard();
@@ -4010,6 +4117,7 @@ document.getElementById("deckLearned").onclick = showLearnedPanel;
 document.getElementById("deckDash").onclick = showDashboard;
 document.getElementById("deckSchool").onclick = showSchoolPanel;
 document.getElementById("deckChat").onclick = showChatPanel;
+document.getElementById("deckHard").onclick = showHardPanel;
 document.getElementById("chatSend").onclick = sendChat;
 document.getElementById("chatText").addEventListener("keydown", e => { if (e.key === "Enter") sendChat(); });
 document.getElementById("learnedSearch").addEventListener("input", e => renderLearnedList(e.target.value));
