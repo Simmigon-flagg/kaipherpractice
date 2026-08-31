@@ -642,6 +642,7 @@
       <div style="text-align:left"><button id="listenBack" class="ghost-btn" type="button">← Games</button></div>
       <div class="add-title">🎧 Listen &amp; Pick</div>
       <div class="speak-sub">Hear a Tagalog word — tap what it means.</div>
+      <div class="hard-hud"><span>🔥 Streak <b id="listenStreak">0</b></span></div>
       <button id="listenPlay" class="play-btn" type="button" style="margin:0 auto 14px; display:block">🔊 Play again</button>
       <div class="choices" id="listenChoices"></div>
       <div class="verdict" id="listenVerdict"></div>
@@ -4283,7 +4284,7 @@ document.getElementById("matchBack").onclick = showGamesPanel;
 document.getElementById("matchNew").onclick = newMatchRound;
 
 // ---------- 🎧 Listen & Pick: hear a word, choose its meaning (practice-only, trains listening) ----------
-let listenItem = null, listenAnswered = false;
+let listenItem = null, listenAnswered = false, listenStreak = 0;
 function listenPool() {
   const words = [];
   Object.values(WORD_CATEGORIES).forEach(c => words.push(...c.words));
@@ -4323,9 +4324,11 @@ function listenAnswer(btn, choice, correct) {
   document.querySelectorAll("#listenChoices .choice").forEach(b => { b.disabled = true; if (b.textContent === correct) b.classList.add("correct"); });
   if (choice === correct) {
     ved.className = "verdict good"; ved.textContent = "✅ " + listenItem[0] + " = " + correct;
+    listenStreak++; document.getElementById("listenStreak").textContent = listenStreak;
     correctSound(); setTimeout(newListenQ, 700); // advance faster; chime still plays, next word still speaks
   } else {
     btn.classList.add("wrong"); ved.className = "verdict bad"; ved.textContent = "❌ " + listenItem[0] + " = " + correct;
+    listenStreak = 0; document.getElementById("listenStreak").textContent = "0";
     buzz(); setTimeout(newListenQ, 1300);
   }
 }
