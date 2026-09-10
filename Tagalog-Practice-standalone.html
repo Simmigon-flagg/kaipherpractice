@@ -429,6 +429,12 @@
   #hardPanel { display: none; margin-top: 8px; text-align: left; }
   #homeScreen.harding > *:not(.nav-bar):not(.deck-menu):not(#hardPanel) { display: none !important; }
   #homeScreen.harding #hardPanel { display: block; }
+  #practicePanel { display: none; margin-top: 8px; text-align: left; }
+  #homeScreen.practicing > *:not(.nav-bar):not(.deck-menu):not(#practicePanel) { display: none !important; }
+  #homeScreen.practicing #practicePanel { display: block; }
+  .pl-item { background: var(--card); border-radius: 10px; padding: 10px 14px; margin-bottom: 7px; display: flex; align-items: center; gap: 10px; }
+  .pl-item .pl-tl { font-weight: 700; } .pl-item .pl-en { color: var(--muted); font-size: .9rem; }
+  .pl-item .pl-miss { margin-left: auto; color: var(--bad); font-size: .82rem; font-weight: 700; }
   .hard-hud { display: flex; gap: 14px; justify-content: center; color: var(--muted); font-size: .95rem; margin: 8px 0; }
   .hard-hud b { color: var(--text); }
   #chatPanel { display: none; margin-top: 8px; text-align: left; }
@@ -516,7 +522,8 @@
       <button id="deckDash">📊 Dashboard</button>
       <button id="deckSchool">🎓 School</button>
       <button id="deckChat">💬 Chat with a friend</button>
-      <button id="deckHard">🧠 Hard Mode <span class="nf-badge">🆕</span></button>
+      <button id="deckHard">🧠 Hard Mode</button>
+      <button id="deckPractice">🎯 Practice List <span class="nf-badge">🆕</span></button>
       <button id="deckAdd">➕ Add words / sentences</button>
       <button id="deckSpeak">🎤 Speak &amp; Score</button>
     </div>
@@ -588,6 +595,13 @@
       <div class="add-title">🧠 Hard Mode</div>
       <div class="chat-sub">Your learned words that sound or mean something close — the trap answer is the look-alike. Forces your brain to tell them apart.</div>
       <div id="hardBody"></div>
+    </div>
+    <!-- 🎯 Practice List: your weak WORDS + SENTENCES in one place, with a one-tap drill. -->
+    <div id="practicePanel">
+      <div class="add-title">🎯 Practice List</div>
+      <div class="chat-sub">Words & sentences you miss often — all in one place.</div>
+      <button id="practiceStart" class="play-btn" style="margin:10px auto;display:block">▶ Practice these now</button>
+      <div id="practiceBody"></div>
     </div>
     <!-- 🎮 Games hub: pick a game. Games are PRACTICE-ONLY — they never change mastery/schedule. -->
     <div id="gamesPanel" class="game-view">
@@ -3279,7 +3293,7 @@ document.getElementById("deckConvo").onclick = () => { closeMenu(); hidePanels()
 // Remember which view you're on so a refresh reopens it instead of dumping you back to the home deck.
 const VIEW_KEY = "tq_view";
 function saveView(v) { try { localStorage.setItem(VIEW_KEY, v); } catch (e) {} }
-function hidePanels() { closeMenu(); hideAddPanel(); hideSpeakPanel(); hideGamesPanel(); hideLearnedPanel(); hideDashboard(); hideSchoolPanel(); hideChatPanel(); hideHardPanel(); updateDeckToggle(); saveView("home"); }
+function hidePanels() { closeMenu(); hideAddPanel(); hideSpeakPanel(); hideGamesPanel(); hideLearnedPanel(); hideDashboard(); hideSchoolPanel(); hideChatPanel(); hideHardPanel(); hidePracticePanel(); updateDeckToggle(); saveView("home"); }
 function restoreView() {
   let v = "home"; try { v = localStorage.getItem(VIEW_KEY) || "home"; } catch (e) {}
   try {
@@ -3290,6 +3304,7 @@ function restoreView() {
     else if (v === "school") showSchoolPanel();
     else if (v === "chat") showChatPanel();
     else if (v === "hard") showHardPanel();
+    else if (v === "practice") showPracticePanel();
     else if (v === "games") showGamesPanel();
     else if (v === "game:match") { showGamesPanel(); showOnlyGamePanel("matchPanel"); newMatchRound(); saveView(v); }
     else if (v === "game:listen") { showGamesPanel(); showOnlyGamePanel("listenPanel"); newListenQ(); saveView(v); }
@@ -3868,6 +3883,48 @@ function hideHardPanel() {
   const b = document.getElementById("deckHard"); if (b) b.classList.remove("active");
   hardRun = null;
 }
+
+// ---------- 🎯 Practice List: weak words + sentences in one place ----------
+// A "weak" item = missed >=2 times and missed at least as often as gotten right (across words + sentences).
+function weakItems() {
+  const rows = [];
+  Object.values(WORD_CATEGORIES).forEach(c => rows.push(...c.words));
+  if (typeof SENTENCE_CATEGORIES !== "undefined") Object.values(SENTENCE_CATEGORIES).forEach(c => rows.push(...(c.words || [])));
+  rows.push(...customWords, ...customSentences);
+  const seen = new Set();
+  return rows.filter(r => typeof r[1] !== "boolean" && r[2] !== "convo" && !seen.has(r[0]) && seen.add(r[0]))
+    .map(r => ({ row: r, tl: r[0], en: r[1], miss: (progress[r[0]] || {}).miss || 0, ok: (progress[r[0]] || {}).ok || 0 }))
+    .filter(x => x.miss >= 2 && x.miss >= x.ok)
+    .sort((a, b) => b.miss - a.miss);
+}
+function showPracticePanel() {
+  closeMenu(); hideAddPanel(); hideSpeakPanel(); hideGamesPanel(); hideLearnedPanel(); hideDashboard(); hideSchoolPanel(); hideChatPanel(); hideHardPanel();
+  document.getElementById("homeScreen").classList.add("practicing");
+  ["deckWords","deckSentences","deckConj","deckJudge","deckGames","deckAdd","deckSpeak","deckLearned","deckDash","deckSchool","deckChat","deckHard"].forEach(id => { const b = document.getElementById(id); if (b) b.classList.remove("active"); });
+  const b = document.getElementById("deckPractice"); if (b) b.classList.add("active");
+  setSection("🎯 Practice List");
+  renderPracticeList();
+  saveView("practice");
+  if (typeof flagNewFeature === "function") flagNewFeature("Practice List — your weak words & sentences");
+}
+function hidePracticePanel() {
+  document.getElementById("homeScreen").classList.remove("practicing");
+  const b = document.getElementById("deckPractice"); if (b) b.classList.remove("active");
+}
+function renderPracticeList() {
+  const weak = weakItems();
+  const body = document.getElementById("practiceBody");
+  document.getElementById("practiceStart").style.display = weak.length ? "block" : "none";
+  if (!weak.length) { body.innerHTML = '<div class="empty">No weak items yet 🎉 — the words & sentences you miss often will collect here so you can drill them in one place.</div>'; return; }
+  body.innerHTML = weak.map(x =>
+    '<div class="pl-item"><div><div class="pl-tl">' + x.tl + '</div><div class="pl-en">' + x.en + '</div></div>' +
+    '<span class="pl-miss">missed ' + x.miss + '×</span></div>').join("");
+}
+function startPracticeList() {
+  const list = weakItems().map(x => x.row);
+  if (!list.length) return;
+  startQuiz("🎯 Practice List", list, "trouble");
+}
 function startHard() {
   const { partners } = buildConfusables();
   // pool = learned words that actually HAVE a confusable partner
@@ -4119,6 +4176,8 @@ document.getElementById("deckDash").onclick = showDashboard;
 document.getElementById("deckSchool").onclick = showSchoolPanel;
 document.getElementById("deckChat").onclick = showChatPanel;
 document.getElementById("deckHard").onclick = showHardPanel;
+document.getElementById("deckPractice").onclick = showPracticePanel;
+document.getElementById("practiceStart").onclick = startPracticeList;
 document.getElementById("chatSend").onclick = sendChat;
 document.getElementById("chatText").addEventListener("keydown", e => { if (e.key === "Enter") sendChat(); });
 document.getElementById("learnedSearch").addEventListener("input", e => renderLearnedList(e.target.value));
