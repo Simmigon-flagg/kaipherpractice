@@ -429,6 +429,15 @@
   #hardPanel { display: none; margin-top: 8px; text-align: left; }
   #homeScreen.harding > *:not(.nav-bar):not(.deck-menu):not(#hardPanel) { display: none !important; }
   #homeScreen.harding #hardPanel { display: block; }
+  /* floating Play + Next bar — pinned to the bottom of the screen during a quiz */
+  #quizActionBar {
+    display: none; position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+    justify-content: center; gap: 10px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+    background: linear-gradient(to top, var(--bg) 70%, transparent);
+  }
+  #quizActionBar.show { display: flex; }
+  #quizActionBar .play-btn { flex: 1; max-width: 220px; }
+  #quizScreen { padding-bottom: 84px; } /* room so content isn't hidden behind the floating bar */
   #practicePanel { display: none; margin-top: 8px; text-align: left; }
   #homeScreen.practicing > *:not(.nav-bar):not(.deck-menu):not(#practicePanel) { display: none !important; }
   #homeScreen.practicing #practicePanel { display: block; }
@@ -784,10 +793,11 @@
       </div>
       <div class="verdict" id="verdict"></div>
       <div id="phraseBox"></div>
-      <div style="display:flex; gap:10px; justify-content:center; margin:14px auto 0; flex-wrap:wrap">
-        <button class="play-btn" id="playBtn" style="margin:0">🔊 Play word</button>
-        <button class="play-btn" id="nextBtn" style="margin:0" title="Go to the next question now (skip the wait)">⏭ Next</button>
-      </div>
+    </div>
+    <!-- floating action bar: Play + Next pinned to the bottom so they're always reachable without scrolling -->
+    <div id="quizActionBar">
+      <button class="play-btn" id="playBtn" style="margin:0">🔊 Play word</button>
+      <button class="play-btn" id="nextBtn" style="margin:0" title="Go to the next question now (skip the wait)">⏭ Next</button>
     </div>
     <div class="row">
       <button class="ghost-btn" id="peekBtn">👁 Show word</button>
@@ -2605,6 +2615,7 @@ function startSpeedRound() {
   currentCat = "⚡ Speed Round";
   document.getElementById("homeScreen").style.display = "none";
   document.getElementById("quizScreen").style.display = "flex";
+  document.getElementById("quizActionBar").classList.add("show");
   document.getElementById("sessBar").style.display = "none";
   document.getElementById("catLabel").textContent = "⚡ Speed Round (" + pool.length + " known words)";
   document.getElementById("subTitle").textContent = "Read fast, click fast — ding = point";
@@ -2838,6 +2849,7 @@ function startQuiz(name, wordList, mode) {
   }
   document.getElementById("homeScreen").style.display = "none";
   document.getElementById("quizScreen").style.display = "flex";
+  document.getElementById("quizActionBar").classList.add("show");
   document.getElementById("catLabel").textContent = name;
   document.getElementById("subTitle").textContent = "Listen → answer → earn the reward";
   document.getElementById("sessBar").style.display = sessionGoal ? "block" : "none";
@@ -2927,6 +2939,7 @@ function goHome() {
   document.getElementById("playBtn").style.display = "block";
   answered = false; current = null;
   document.getElementById("quizScreen").style.display = "none";
+  document.getElementById("quizActionBar").classList.remove("show");
   document.getElementById("homeScreen").style.display = "block";
   document.getElementById("subTitle").textContent = "Pick a category to start";
   renderHome(); // refresh mastery bars + today's stats
