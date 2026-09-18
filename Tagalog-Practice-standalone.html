@@ -3169,9 +3169,10 @@ function finishAnswer(ok) {
   sessionDone++;
   updateSessBar();
   updateStats();
-  // ~5 seconds on every question. Short words/items wait a bit; a long sentence keeps the extra
-  // time its audio needs so it never clips. Tap ⏭ Next to move on sooner.
-  waitMs = Math.max(5000, waitMs);
+  // Advance quickly. waitMs is already sized to fit the spoken readback per branch, so a long
+  // sentence keeps the time its audio needs (never clips); short items now move fast like the
+  // games instead of sitting on a 5s floor. Tap ⏭ Next to move on even sooner.
+  waitMs = Math.max(1500, waitMs);
   startNextCountdown(waitMs);
 }
 function updateStats() {
