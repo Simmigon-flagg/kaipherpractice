@@ -803,7 +803,7 @@
       <button class="ghost-btn" id="peekBtn">👁 Show word</button>
       <button class="ghost-btn" id="skipBtn">Skip →</button>
       <button class="ghost-btn" id="speedBtn" title="Playback speed — tap to cycle"><span id="speedLabel">⚡ Fast</span><span class="nf-badge">🆕</span></button>
-      <button class="ghost-btn" id="musicBtn" title="Keep your music playing while you practice (iPhone). Note: the phone's silent switch will mute the app in this mode.">🎵 Music: off</button>
+      <button class="ghost-btn" id="musicBtn" title="Keep your music playing while you practice (iPhone). Note: the phone's silent switch will mute the app in this mode.">🎵 Music: ON</button>
     </div>
   </div>
 
@@ -3249,7 +3249,7 @@ function flagNewFeature(label) {
 (function () {
   const musicBtn = document.getElementById("musicBtn");
   if (!musicBtn) return;
-  let musicOn = localStorage.getItem("tq_musicMix") === "1";
+  let musicOn = localStorage.getItem("tq_musicMix") !== "0"; // ON by default (owner request)
   function applyMusicMode() {
     try { if (navigator.audioSession) navigator.audioSession.type = musicOn ? "ambient" : "auto"; } catch (e) {}
     musicBtn.textContent = musicOn ? "🎵 Music: ON" : "🎵 Music: off";
