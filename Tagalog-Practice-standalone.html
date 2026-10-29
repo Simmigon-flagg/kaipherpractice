@@ -4777,17 +4777,30 @@ restoreView(); // reopen whatever view you were on before a refresh (home, a pan
   let goalMin   = +(localStorage.getItem(K_GOALMIN) || 60);
   let elapsedMs = +(localStorage.getItem(K_ELAPSED) || 0);
   let lastTick  = Date.now();
-  let lastActivity = Date.now();
-  let wasActive = true; // to detect the moment we auto-pause, so we can rewind the leaked grace
+  let lastActivity = 0;  // nothing counts until you actually tap on a practice screen
+  let wasActive = false; // to detect the moment we auto-pause, so we can rewind the leaked grace
   let alarming = false, alarmTimer = null;
 
   // any real interaction counts as "still practicing"
+  // Owner request: only count real practice — quiz, games, speaking, listening, chat, lessons.
+  // Browsing home, word lists, stats, settings or add-words never counts.
+  const PRACTICE_SCREENS = ["quizScreen", "speakPanel", "chatPanel", "hardPanel", "schoolPanel",
+    "matchPanel", "listenPanel", "rushPanel", "hangmanPanel", "memPanel"];
+  const onPracticeScreen = () => PRACTICE_SCREENS.some(id => {
+    const el = document.getElementById(id);
+    return el && el.getClientRects().length > 0; // rendered = currently showing
+  });
+
+  // any real interaction ON A PRACTICE SCREEN counts as "still practicing"
   ["mousedown", "keydown", "touchstart", "pointerdown", "click"].forEach(ev =>
-    window.addEventListener(ev, () => { lastActivity = Date.now(); if (alarming) stopAlarm(); }, { passive: true }));
+    window.addEventListener(ev, () => {
+      if (onPracticeScreen()) lastActivity = Date.now();
+      if (alarming) stopAlarm();
+    }, { passive: true }));
 
   const goalMs = () => goalMin * 60000;
   const remaining = () => Math.max(0, goalMs() - elapsedMs);
-  const isActive = () => document.visibilityState === "visible" && (Date.now() - lastActivity) < IDLE_MS;
+  const isActive = () => document.visibilityState === "visible" && onPracticeScreen() && (Date.now() - lastActivity) < IDLE_MS;
 
   function fmtTotal(ms) {
     const m = Math.floor(ms / 60000); return "⏱ " + Math.floor(m / 60) + "h " + (m % 60) + "m";
