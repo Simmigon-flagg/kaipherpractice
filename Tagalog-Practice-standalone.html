@@ -803,6 +803,7 @@
       <button class="ghost-btn" id="peekBtn">👁 Show word</button>
       <button class="ghost-btn" id="skipBtn">Skip →</button>
       <button class="ghost-btn" id="speedBtn" title="Playback speed — tap to cycle"><span id="speedLabel">⚡ Fast</span><span class="nf-badge">🆕</span></button>
+      <button class="ghost-btn" id="musicBtn" title="Keep your music playing while you practice (iPhone). Note: the phone's silent switch will mute the app in this mode.">🎵 Music: off</button>
     </div>
   </div>
 
@@ -3240,6 +3241,25 @@ function flagNewFeature(label) {
     ttsAudio.playbackRate = ttsSpeed();
     flagNewFeature("Playback speed — " + TTS_SPEEDS[ttsSpeedIdx].label);
     if (current) speak(current.tl); // preview the current word at the new speed
+  };
+})();
+// Music mode (owner-requested): lets the app's sounds MIX with the user's music app (YouTube Music,
+// etc.) instead of pausing it on iPhone. Uses Safari's Audio Session API ("ambient" = mix with other
+// audio). Sits OUTSIDE the locked sound blocks — the voices/chimes themselves are unchanged.
+(function () {
+  const musicBtn = document.getElementById("musicBtn");
+  if (!musicBtn) return;
+  let musicOn = localStorage.getItem("tq_musicMix") === "1";
+  function applyMusicMode() {
+    try { if (navigator.audioSession) navigator.audioSession.type = musicOn ? "ambient" : "auto"; } catch (e) {}
+    musicBtn.textContent = musicOn ? "🎵 Music: ON" : "🎵 Music: off";
+  }
+  applyMusicMode();
+  musicBtn.onclick = () => {
+    musicOn = !musicOn;
+    localStorage.setItem("tq_musicMix", musicOn ? "1" : "0");
+    applyMusicMode();
+    flagNewFeature(musicOn ? "Music mode ON — your music keeps playing" : "Music mode off");
   };
 })();
 document.getElementById("homeBtn").onclick = goHome;
