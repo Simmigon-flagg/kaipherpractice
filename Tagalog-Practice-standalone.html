@@ -502,6 +502,10 @@
   .grade-D { color: #f79b4f; } .grade-F { color: var(--bad); }
   .res-pct { font-size: 1.6rem; font-weight: 800; }
   .res-line { color: var(--muted); margin: 8px 0 16px; }
+  #answerGlow { position: fixed; inset: 0; pointer-events: none; z-index: 9999; opacity: 0; }
+  #answerGlow.good { box-shadow: inset 0 0 90px 18px rgba(80, 220, 120, .55); animation: glowfade 1s ease-out; }
+  #answerGlow.bad  { box-shadow: inset 0 0 90px 18px rgba(247, 95, 95, .55); animation: glowfade 1s ease-out; }
+  @keyframes glowfade { 0% { opacity: 0; } 15% { opacity: 1; } 100% { opacity: 0; } }
 </style>
 </head>
 <body>
@@ -803,7 +807,7 @@
       <button class="ghost-btn" id="peekBtn">👁 Show word</button>
       <button class="ghost-btn" id="skipBtn">Skip →</button>
       <button class="ghost-btn" id="speedBtn" title="Playback speed — tap to cycle"><span id="speedLabel">⚡ Fast</span><span class="nf-badge">🆕</span></button>
-      <button class="ghost-btn" id="musicBtn" title="Keep your music playing while you practice (iPhone). Note: the phone's silent switch will mute the app in this mode.">🎵 Music: ON</button>
+      <button class="ghost-btn" id="musicBtn" title="Tap to switch: 🔊 Sound · 🎵 Music (keeps your music playing) · 🔇 Quiet (only new words, green/red glow)">🎵 Music</button>
     </div>
   </div>
 
@@ -3243,24 +3247,59 @@ function flagNewFeature(label) {
     if (current) speak(current.tl); // preview the current word at the new speed
   };
 })();
-// Music mode (owner-requested): lets the app's sounds MIX with the user's music app (YouTube Music,
-// etc.) instead of pausing it on iPhone. Uses Safari's Audio Session API ("ambient" = mix with other
-// audio). Sits OUTSIDE the locked sound blocks — the voices/chimes themselves are unchanged.
+// Sound mode button (owner-requested), 3-way: 🔊 Sound → 🎵 Music → 🔇 Quiet.
+//  • Music: app sounds MIX with the user's music app on iPhone instead of pausing it (Safari's Audio
+//    Session API, "ambient"). Chrome on iPhone doesn't support this, so use Safari.
+//  • Quiet: nothing plays on its own — EXCEPT a word you've never seen before (so you hear it once),
+//    or when you tap a Play button / a word in a list. Right/wrong show as a soft green/red glow.
+// Owner-approved (2026-10-29): this WRAPS the locked voice + reward-sound functions with an off switch.
+// It never edits them — outside Quiet mode they run exactly as before.
+const SOUND_MODES = [{ id: "sound", label: "🔊 Sound" }, { id: "music", label: "🎵 Music" }, { id: "quiet", label: "🔇 Quiet" }];
+let soundMode = localStorage.getItem("tq_soundMode") ||
+  (localStorage.getItem("tq_musicMix") === "0" ? "sound" : "music"); // Music is the default
+let playTapUntil = 0; // a Play tap just happened → let that sound through in Quiet mode
 (function () {
   const musicBtn = document.getElementById("musicBtn");
   if (!musicBtn) return;
-  let musicOn = localStorage.getItem("tq_musicMix") !== "0"; // ON by default (owner request)
-  function applyMusicMode() {
-    try { if (navigator.audioSession) navigator.audioSession.type = musicOn ? "ambient" : "auto"; } catch (e) {}
-    musicBtn.textContent = musicOn ? "🎵 Music: ON" : "🎵 Music: off";
+  function applySoundMode() {
+    try { if (navigator.audioSession) navigator.audioSession.type = soundMode === "sound" ? "auto" : "ambient"; } catch (e) {}
+    musicBtn.textContent = SOUND_MODES.find(m => m.id === soundMode).label;
   }
-  applyMusicMode();
+  applySoundMode();
   musicBtn.onclick = () => {
-    musicOn = !musicOn;
-    localStorage.setItem("tq_musicMix", musicOn ? "1" : "0");
-    applyMusicMode();
-    flagNewFeature(musicOn ? "Music mode ON — your music keeps playing" : "Music mode off");
+    const i = SOUND_MODES.findIndex(m => m.id === soundMode);
+    soundMode = SOUND_MODES[(i + 1) % SOUND_MODES.length].id;
+    localStorage.setItem("tq_soundMode", soundMode);
+    applySoundMode();
+    if (soundMode === "quiet") stopSpeech();
+    flagNewFeature({ sound: "Sound ON (pauses your music)", music: "Music mode — your music keeps playing",
+      quiet: "Quiet — only new words play; green/red glow for answers" }[soundMode]);
   };
+  // Capture phase runs before the button's own handler, so the flag is set when speak() fires.
+  window.addEventListener("click", e => {
+    if (e.target.closest && e.target.closest('#playBtn,#speedBtn,[id$="Play"],.learned-item')) playTapUntil = Date.now() + 600;
+  }, true);
+
+  const quiet = () => soundMode === "quiet" && Date.now() > playTapUntil;
+  let glowEl = null;
+  function glow(color) {
+    if (!glowEl) { glowEl = document.createElement("div"); glowEl.id = "answerGlow"; document.body.appendChild(glowEl); }
+    glowEl.className = ""; void glowEl.offsetWidth; // restart the fade
+    glowEl.className = color;
+  }
+  const _speak = speak, _speakEnglish = speakEnglish, _correctSound = correctSound, _buzz = buzz, _dingSound = dingSound;
+  speak = function (word) {
+    if (quiet() && progress[word]) { // seen before → stay silent, show the text instead of "listen first"
+      const wd = document.getElementById("wordDisplay");
+      if (wd && wd.classList.contains("hidden-word")) showPrompt(true);
+      return;
+    }
+    return _speak.apply(this, arguments);
+  };
+  speakEnglish = function () { if (!quiet()) return _speakEnglish.apply(this, arguments); };
+  correctSound = function () { if (soundMode === "quiet") { glow("good"); return; } return _correctSound.apply(this, arguments); };
+  buzz = function () { if (soundMode === "quiet") { glow("bad"); return; } return _buzz.apply(this, arguments); };
+  dingSound = function () { if (soundMode === "quiet") { glow("good"); return; } return _dingSound.apply(this, arguments); };
 })();
 document.getElementById("homeBtn").onclick = goHome;
 document.getElementById("startHereBtn").onclick = smartStart;
