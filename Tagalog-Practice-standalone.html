@@ -525,6 +525,7 @@
       <div id="currentSection" class="current-section">📚 Words</div>
     </div>
     <div class="deck-menu" id="deckMenu">
+      <button id="menuSoundBtn" class="sound-mode-btn" type="button" style="border-bottom:1px solid #3a4054;border-radius:10px 10px 0 0">🎵 Music</button>
       <button id="deckWords" class="active">📚 Words</button>
       <button id="deckSentences">💬 Sentences</button>
       <button id="deckConj">🧩 Conjugation</button>
@@ -807,7 +808,7 @@
       <button class="ghost-btn" id="peekBtn">👁 Show word</button>
       <button class="ghost-btn" id="skipBtn">Skip →</button>
       <button class="ghost-btn" id="speedBtn" title="Playback speed — tap to cycle"><span id="speedLabel">⚡ Fast</span><span class="nf-badge">🆕</span></button>
-      <button class="ghost-btn" id="musicBtn" title="Tap to switch: 🔊 Sound · 🎵 Music (keeps your music playing) · 🔇 Quiet (only new words, green/red glow)">🎵 Music</button>
+      <button class="ghost-btn sound-mode-btn" id="musicBtn" title="Tap to switch: 🔊 Sound · 🎵 Music (keeps your music playing) · 🔇 Quiet (only new words, green/red glow)">🎵 Music</button>
     </div>
   </div>
 
@@ -3259,14 +3260,16 @@ let soundMode = localStorage.getItem("tq_soundMode") ||
   (localStorage.getItem("tq_musicMix") === "0" ? "sound" : "music"); // Music is the default
 let playTapUntil = 0; // a Play tap just happened → let that sound through in Quiet mode
 (function () {
-  const musicBtn = document.getElementById("musicBtn");
-  if (!musicBtn) return;
+  // Same switch in two places: the quiz screen and the ☰ menu (so it works in games etc. too).
+  const soundBtns = document.querySelectorAll(".sound-mode-btn");
+  if (!soundBtns.length) return;
   function applySoundMode() {
     try { if (navigator.audioSession) navigator.audioSession.type = soundMode === "sound" ? "auto" : "ambient"; } catch (e) {}
-    musicBtn.textContent = SOUND_MODES.find(m => m.id === soundMode).label;
+    const label = SOUND_MODES.find(m => m.id === soundMode).label;
+    soundBtns.forEach(b => b.textContent = b.id === "menuSoundBtn" ? label + "  · tap to switch" : label);
   }
   applySoundMode();
-  musicBtn.onclick = () => {
+  soundBtns.forEach(b => b.onclick = () => {
     const i = SOUND_MODES.findIndex(m => m.id === soundMode);
     soundMode = SOUND_MODES[(i + 1) % SOUND_MODES.length].id;
     localStorage.setItem("tq_soundMode", soundMode);
@@ -3274,7 +3277,7 @@ let playTapUntil = 0; // a Play tap just happened → let that sound through in 
     if (soundMode === "quiet") stopSpeech();
     flagNewFeature({ sound: "Sound ON (pauses your music)", music: "Music mode — your music keeps playing",
       quiet: "Quiet — only new words play; green/red glow for answers" }[soundMode]);
-  };
+  });
   // Capture phase runs before the button's own handler, so the flag is set when speak() fires.
   window.addEventListener("click", e => {
     if (e.target.closest && e.target.closest('#playBtn,#speedBtn,[id$="Play"],.learned-item')) playTapUntil = Date.now() + 600;
