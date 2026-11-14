@@ -441,9 +441,11 @@
   #practicePanel { display: none; margin-top: 8px; text-align: left; }
   #homeScreen.practicing > *:not(.nav-bar):not(.deck-menu):not(#practicePanel) { display: none !important; }
   #homeScreen.practicing #practicePanel { display: block; }
-  /* 🙈 Hidden words list (Settings) */
-  #hiddenList { width: 100%; }
-  .hid-item { background: var(--bg); border-radius: 10px; padding: 10px 14px; margin-top: 8px; display: flex; align-items: center; gap: 10px; text-align: left; }
+  /* 🙈 Hidden words panel (☰ menu) */
+  #hiddenPanel { display: none; margin-top: 8px; text-align: left; }
+  #homeScreen.hiding > *:not(.nav-bar):not(.deck-menu):not(#hiddenPanel) { display: none !important; }
+  #homeScreen.hiding #hiddenPanel { display: block; }
+  .hid-item { background: var(--card); border-radius: 10px; padding: 10px 14px; margin-top: 8px; display: flex; align-items: center; gap: 10px; text-align: left; }
   .hid-item .hid-tl { font-weight: 700; font-size: 1.2rem; } .hid-item .hid-en { color: var(--muted); font-size: 1.15rem; }
   .hid-item button { margin-left: auto; white-space: nowrap; }
   .pl-item { background: var(--card); border-radius: 10px; padding: 10px 14px; margin-bottom: 7px; display: flex; align-items: center; gap: 10px; }
@@ -543,6 +545,7 @@
       <button id="deckChat">💬 Chat with a friend</button>
       <button id="deckHard">🧠 Hard Mode</button>
       <button id="deckPractice">🎯 Practice List <span class="nf-badge">🆕</span></button>
+      <button id="deckHidden">🙈 Hidden words (<span id="hiddenCount">0</span>) <span class="nf-badge">🆕</span></button>
       <button id="deckAdd">➕ Add words / sentences</button>
       <button id="deckSpeak">🎤 Speak &amp; Score</button>
     </div>
@@ -621,6 +624,12 @@
       <div class="chat-sub">Words & sentences you miss often — all in one place.</div>
       <button id="practiceStart" class="play-btn" style="margin:10px auto;display:block">▶ Practice these now</button>
       <div id="practiceBody"></div>
+    </div>
+    <!-- 🙈 Hidden words: words you hid from practice (too close to English, already known). Bring any back. -->
+    <div id="hiddenPanel">
+      <div class="add-title">🙈 Hidden words</div>
+      <div class="chat-sub">Words you hid — they never show up in any practice. Tap ↩ Show again to bring one back (its progress is kept).</div>
+      <div id="hiddenList"></div>
     </div>
     <!-- 🎮 Games hub: pick a game. Games are PRACTICE-ONLY — they never change mastery/schedule. -->
     <div id="gamesPanel" class="game-view">
@@ -763,12 +772,6 @@
         <select id="phraseSelect"><option value="on">On</option><option value="off">Off</option></select>
       </div>
       <div class="settings-row">
-        <button class="ghost-btn" id="hiddenToggleBtn">🙈 Hidden words (<span id="hiddenCount">0</span>) <span class="nf-badge">🆕</span></button>
-      </div>
-      <div class="settings-row" id="hiddenRow" style="display:none">
-        <div id="hiddenList"></div>
-      </div>
-      <div class="settings-row">
         <input type="file" id="backupFile" accept=".json" style="display:none">
         <button class="ghost-btn" id="exportBtn">⬇ Export backup</button>
         <button class="ghost-btn" id="importBackupBtn">⬆ Import backup</button>
@@ -818,7 +821,7 @@
     <div class="row">
       <button class="ghost-btn" id="peekBtn">👁 Show word</button>
       <button class="ghost-btn" id="skipBtn">Skip →</button>
-      <button class="ghost-btn" id="hideWordBtn" title="Never show this word in any practice again (undo in ⚙️ Settings → Hidden words)">🙈 Hide word <span class="nf-badge">🆕</span></button>
+      <button class="ghost-btn" id="hideWordBtn" title="Never show this word in any practice again (undo in ☰ menu → Hidden words)">🙈 I know it — hide <span class="nf-badge">🆕</span></button>
       <button class="ghost-btn" id="speedBtn" title="Playback speed — tap to cycle"><span id="speedLabel">⚡ Fast</span><span class="nf-badge">🆕</span></button>
       <button class="ghost-btn sound-mode-btn" id="musicBtn" title="Tap to switch: 🔊 Sound · 🎵 Music (Filipino voice + chimes, no English voice) · 🔇 Quiet (Filipino voice only, green/red glow)">🎵 Music</button>
     </div>
@@ -3255,20 +3258,20 @@ document.getElementById("skipBtn").onclick = nextQuestion;
 document.getElementById("hideWordBtn").onclick = () => {
   if (!current || !current.tl || !isBuiltInWord(current.tl)) return;
   const tl = current.tl, en = current.en || "";
-  if (!confirm("Hide \"" + tl + "\" (" + en + ") from all practice?\n\nYou can bring it back in ⚙️ Settings → Hidden words.")) return;
+  if (!confirm("Hide \"" + tl + "\" (" + en + ") from all practice?\n\nYou can bring it back in ☰ menu → 🙈 Hidden words.")) return;
   if (!hiddenWords.some(h => h.tl === tl)) hiddenWords.push({ tl, en, at: Date.now() });
   saveHidden();
   rebuildGroupIndex();
   words = words.filter(r => r[0] !== tl);
   renderHiddenList();
-  flagNewFeature("Hidden \"" + tl + "\" — undo in Settings → Hidden words");
+  flagNewFeature("Hidden \"" + tl + "\" — undo in ☰ menu → Hidden words");
   if (!words.length) return goHome();
   nextQuestion();
 };
 function renderHiddenList() {
   document.getElementById("hiddenCount").textContent = hiddenWords.length;
   const box = document.getElementById("hiddenList");
-  if (!hiddenWords.length) { box.innerHTML = '<div class="empty">No hidden words. Tap 🙈 Hide word during practice to hide one.</div>'; return; }
+  if (!hiddenWords.length) { box.innerHTML = '<div class="empty">No hidden words. Tap 🙈 I know it — hide during practice to hide a word you do not need.</div>'; return; }
   const list = hiddenWords.slice().sort((a, b) => (b.at || 0) - (a.at || 0));
   box.innerHTML = list.map((h, i) =>
     '<div class="hid-item"><div><div class="hid-tl">' + escHTML(String(h.tl)) + '</div><div class="hid-en">' + escHTML(String(h.en || "")) + '</div></div>' +
@@ -3282,11 +3285,25 @@ function renderHiddenList() {
     renderHome();
   });
 }
-document.getElementById("hiddenToggleBtn").onclick = () => {
-  const r = document.getElementById("hiddenRow");
-  r.style.display = r.style.display === "none" ? "flex" : "none";
+function showHiddenPanel() {
+  closeMenu(); hideAddPanel(); hideSpeakPanel(); hideGamesPanel(); hideLearnedPanel(); hideDashboard(); hideSchoolPanel(); hideChatPanel(); hideHardPanel(); hidePracticePanel();
+  document.querySelectorAll("#deckMenu button").forEach(b => b.classList.remove("active"));
+  document.getElementById("homeScreen").classList.add("hiding");
+  document.getElementById("deckHidden").classList.add("active");
+  setSection("🙈 Hidden words");
   renderHiddenList();
-};
+  saveView("hidden");
+}
+function hideHiddenPanel() {
+  document.getElementById("homeScreen").classList.remove("hiding");
+  document.getElementById("deckHidden").classList.remove("active");
+}
+document.getElementById("deckHidden").onclick = showHiddenPanel;
+// Any other menu choice closes this panel (capture phase, so it runs before that item's own handler).
+document.getElementById("deckMenu").addEventListener("click", e => {
+  const b = e.target.closest("button");
+  if (b && b.id !== "deckHidden" && b.id !== "menuSoundBtn") hideHiddenPanel();
+}, true);
 renderHiddenList();
 // ---------- TEMPORARY: "new feature" highlight (remove once features are settled) ----------
 // Flashes an amber pill so Kaipher can see when a new roadmap feature actually does its thing.
@@ -3429,7 +3446,7 @@ document.getElementById("deckConvo").onclick = () => { closeMenu(); hidePanels()
 // Remember which view you're on so a refresh reopens it instead of dumping you back to the home deck.
 const VIEW_KEY = "tq_view";
 function saveView(v) { try { localStorage.setItem(VIEW_KEY, v); } catch (e) {} }
-function hidePanels() { closeMenu(); hideAddPanel(); hideSpeakPanel(); hideGamesPanel(); hideLearnedPanel(); hideDashboard(); hideSchoolPanel(); hideChatPanel(); hideHardPanel(); hidePracticePanel(); updateDeckToggle(); saveView("home"); }
+function hidePanels() { closeMenu(); hideAddPanel(); hideSpeakPanel(); hideGamesPanel(); hideLearnedPanel(); hideDashboard(); hideSchoolPanel(); hideChatPanel(); hideHardPanel(); hidePracticePanel(); if (typeof hideHiddenPanel === "function") hideHiddenPanel(); updateDeckToggle(); saveView("home"); }
 function restoreView() {
   let v = "home"; try { v = localStorage.getItem(VIEW_KEY) || "home"; } catch (e) {}
   try {
@@ -3441,6 +3458,7 @@ function restoreView() {
     else if (v === "chat") showChatPanel();
     else if (v === "hard") showHardPanel();
     else if (v === "practice") showPracticePanel();
+    else if (v === "hidden") showHiddenPanel();
     else if (v === "games") showGamesPanel();
     else if (v === "game:match") { showGamesPanel(); showOnlyGamePanel("matchPanel"); newMatchRound(); saveView(v); }
     else if (v === "game:listen") { showGamesPanel(); showOnlyGamePanel("listenPanel"); newListenQ(); saveView(v); }
