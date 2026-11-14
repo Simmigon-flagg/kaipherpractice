@@ -441,6 +441,11 @@
   #practicePanel { display: none; margin-top: 8px; text-align: left; }
   #homeScreen.practicing > *:not(.nav-bar):not(.deck-menu):not(#practicePanel) { display: none !important; }
   #homeScreen.practicing #practicePanel { display: block; }
+  /* 🙈 Hidden words list (Settings) */
+  #hiddenList { width: 100%; }
+  .hid-item { background: var(--bg); border-radius: 10px; padding: 10px 14px; margin-top: 8px; display: flex; align-items: center; gap: 10px; text-align: left; }
+  .hid-item .hid-tl { font-weight: 700; font-size: 1.2rem; } .hid-item .hid-en { color: var(--muted); font-size: 1.15rem; }
+  .hid-item button { margin-left: auto; white-space: nowrap; }
   .pl-item { background: var(--card); border-radius: 10px; padding: 10px 14px; margin-bottom: 7px; display: flex; align-items: center; gap: 10px; }
   .pl-item .pl-tl { font-weight: 700; } .pl-item .pl-en { color: var(--muted); font-size: .9rem; }
   .pl-item .pl-miss { margin-left: auto; color: var(--bad); font-size: .82rem; font-weight: 700; }
@@ -758,6 +763,12 @@
         <select id="phraseSelect"><option value="on">On</option><option value="off">Off</option></select>
       </div>
       <div class="settings-row">
+        <button class="ghost-btn" id="hiddenToggleBtn">🙈 Hidden words (<span id="hiddenCount">0</span>) <span class="nf-badge">🆕</span></button>
+      </div>
+      <div class="settings-row" id="hiddenRow" style="display:none">
+        <div id="hiddenList"></div>
+      </div>
+      <div class="settings-row">
         <input type="file" id="backupFile" accept=".json" style="display:none">
         <button class="ghost-btn" id="exportBtn">⬇ Export backup</button>
         <button class="ghost-btn" id="importBackupBtn">⬆ Import backup</button>
@@ -807,6 +818,7 @@
     <div class="row">
       <button class="ghost-btn" id="peekBtn">👁 Show word</button>
       <button class="ghost-btn" id="skipBtn">Skip →</button>
+      <button class="ghost-btn" id="hideWordBtn" title="Never show this word in any practice again (undo in ⚙️ Settings → Hidden words)">🙈 Hide word <span class="nf-badge">🆕</span></button>
       <button class="ghost-btn" id="speedBtn" title="Playback speed — tap to cycle"><span id="speedLabel">⚡ Fast</span><span class="nf-badge">🆕</span></button>
       <button class="ghost-btn sound-mode-btn" id="musicBtn" title="Tap to switch: 🔊 Sound · 🎵 Music (Filipino voice + chimes, no English voice) · 🔇 Quiet (Filipino voice only, green/red glow)">🎵 Music</button>
     </div>
@@ -1902,6 +1914,22 @@ function convoRows() { return allConvoPairs().map(p => [p[0], p[1], "convo"]); }
 const SENTENCE_CATS = (typeof SENTENCE_CATEGORIES !== "undefined") ? SENTENCE_CATEGORIES : {};
 const CONJ_CATS = (typeof CONJUGATION_CATEGORIES !== "undefined") ? CONJUGATION_CATEGORIES : {};
 const JUDGE_CATS = (typeof JUDGE_CATEGORIES !== "undefined") ? JUDGE_CATEGORIES : {};
+// ---------- 🙈 Hidden words: built-in words/sentences you never want to practice (e.g. plano = plan) ----------
+// Filters the category arrays IN PLACE, so every place that reads c.words (quiz, decoys, speed round,
+// games, hard mode, school, practice list, mastery counts) skips them without per-feature changes.
+// Progress is untouched — un-hiding a word brings it back with its history.
+const HIDDEN_KEY = "tq_hidden";
+let hiddenWords = (() => { try { const a = JSON.parse(localStorage.getItem(HIDDEN_KEY) || "[]"); return Array.isArray(a) ? a : []; } catch (e) { return []; } })(); // [{tl, en, at}]
+const HIDE_ORIG = new Map(); // category object -> its full original word list
+[WORD_CATEGORIES, SENTENCE_CATS, CONJ_CATS].forEach(cats =>
+  Object.values(cats).forEach(c => { if (c && Array.isArray(c.words)) HIDE_ORIG.set(c, c.words.slice()); }));
+function applyHidden() {
+  const hs = new Set(hiddenWords.map(h => h.tl));
+  HIDE_ORIG.forEach((orig, c) => { const keep = orig.filter(r => !hs.has(r[0])); c.words.length = 0; c.words.push(...keep); });
+}
+function isBuiltInWord(tl) { for (const orig of HIDE_ORIG.values()) if (orig.some(r => r[0] === tl)) return true; return false; }
+function saveHidden() { try { localStorage.setItem(HIDDEN_KEY, JSON.stringify(hiddenWords)); } catch (e) {} applyHidden(); }
+applyHidden();
 const DECKS = {
   words: () => WORD_CATEGORIES, sentences: () => SENTENCE_CATS, conj: () => CONJ_CATS, judge: () => JUDGE_CATS,
   convo: () => ({ "Conversations": { emoji: "🗣️", words: convoRows() } })
@@ -2969,6 +2997,7 @@ function nextQuestion() {
     : pickItem();
   if (!current) return finishSession(sessionMode === "normal"); // nothing left to serve
   const { tl, en, rev } = current;
+  { const hb = document.getElementById("hideWordBtn"); if (hb) hb.style.display = (!current.judge && !current.convo && isBuiltInWord(tl)) ? "" : "none"; }
   const judge = !!current.judge && !speedMode; // per-item, so guided sessions can mix makes-sense with words
   const typed = !judge && answerMode === "typed" && !speedMode;
   document.getElementById("typedArea").style.display = typed ? "flex" : "none";
@@ -3222,6 +3251,43 @@ document.getElementById("saveKeyBtn").onclick = () => {
 };
 document.getElementById("peekBtn").onclick = () => showPrompt(true);
 document.getElementById("skipBtn").onclick = nextQuestion;
+// 🙈 Hide word: drop the current word from every practice (undo in Settings → Hidden words)
+document.getElementById("hideWordBtn").onclick = () => {
+  if (!current || !current.tl || !isBuiltInWord(current.tl)) return;
+  const tl = current.tl, en = current.en || "";
+  if (!confirm("Hide \"" + tl + "\" (" + en + ") from all practice?\n\nYou can bring it back in ⚙️ Settings → Hidden words.")) return;
+  if (!hiddenWords.some(h => h.tl === tl)) hiddenWords.push({ tl, en, at: Date.now() });
+  saveHidden();
+  rebuildGroupIndex();
+  words = words.filter(r => r[0] !== tl);
+  renderHiddenList();
+  flagNewFeature("Hidden \"" + tl + "\" — undo in Settings → Hidden words");
+  if (!words.length) return goHome();
+  nextQuestion();
+};
+function renderHiddenList() {
+  document.getElementById("hiddenCount").textContent = hiddenWords.length;
+  const box = document.getElementById("hiddenList");
+  if (!hiddenWords.length) { box.innerHTML = '<div class="empty">No hidden words. Tap 🙈 Hide word during practice to hide one.</div>'; return; }
+  const list = hiddenWords.slice().sort((a, b) => (b.at || 0) - (a.at || 0));
+  box.innerHTML = list.map((h, i) =>
+    '<div class="hid-item"><div><div class="hid-tl">' + escHTML(String(h.tl)) + '</div><div class="hid-en">' + escHTML(String(h.en || "")) + '</div></div>' +
+    '<button class="ghost-btn" data-unhide="' + i + '">↩ Show again</button></div>').join("");
+  box.querySelectorAll("[data-unhide]").forEach(b => b.onclick = () => {
+    const tl = list[+b.getAttribute("data-unhide")].tl;
+    hiddenWords = hiddenWords.filter(h => h.tl !== tl);
+    saveHidden();
+    rebuildGroupIndex();
+    renderHiddenList();
+    renderHome();
+  });
+}
+document.getElementById("hiddenToggleBtn").onclick = () => {
+  const r = document.getElementById("hiddenRow");
+  r.style.display = r.style.display === "none" ? "flex" : "none";
+  renderHiddenList();
+};
+renderHiddenList();
 // ---------- TEMPORARY: "new feature" highlight (remove once features are settled) ----------
 // Flashes an amber pill so Kaipher can see when a new roadmap feature actually does its thing.
 function flagNewFeature(label) {
@@ -4684,7 +4750,7 @@ document.getElementById("importSave").onclick = () => {
 
 // ---------- backup: export/import everything ----------
 const BACKUP_LS_KEYS = [LS.custom, LS.customSent, LS.customConvo, LS.prog, LS.best, SPEED_BEST_KEY, SPEED_BEST_KEY_SENT, SOUND_KEY, MODE_KEY,
-  DAILY_KEY, STREAK_KEY, NEWCAP_KEY, REV_KEY, PHRASE_KEY, DECK_KEY];
+  DAILY_KEY, STREAK_KEY, NEWCAP_KEY, REV_KEY, PHRASE_KEY, DECK_KEY, HIDDEN_KEY];
 function blobToDataURL(blob) {
   return new Promise((res, rej) => {
     const r = new FileReader();
